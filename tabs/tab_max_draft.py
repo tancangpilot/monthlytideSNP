@@ -5,7 +5,6 @@ def render_max_draft_tab(config):
     def h_red(val):
         return f"<span style='color:red; font-weight:bold;'>{val}</span>"
 
-    # Đã sửa margin-bottom thành 5px để sát vừa đủ, không bị đè
     info_html = (
         f"<div style='margin-bottom: 5px; font-size: 14.5px;'>"
         f"<i>UCK daytime: {h_red(str(config['ukc_day'])+'%')} - night time: {h_red(str(config['ukc_night'])+'%')} . "
@@ -16,19 +15,12 @@ def render_max_draft_tab(config):
     )
     st.markdown(info_html, unsafe_allow_html=True)
     
-    # Chia làm 4 cột tỷ lệ: Chữ (0.5) - Box (3) - Chữ (0.6) - Box (3)
     c1, c2, c3, c4 = st.columns([0.5, 3, 0.6, 3])
     
-    # Cột 1: Chữ "Sông" (Đỉnh chỉnh margin-top để thẳng hàng hoàn hảo với hộp chọn)
     c1.markdown("<div style='margin-top: 6px; font-weight: bold;'>Sông:</div>", unsafe_allow_html=True)
-    
-    # Cột 2: Dropdown Sông
     grp = c2.selectbox("Sông", ["LÒNG TÀU", "SOÀI RẠP"], label_visibility="collapsed")
     
-    # Cột 3: Chữ "Tháng"
     c3.markdown("<div style='margin-top: 6px; font-weight: bold;'>Tháng:</div>", unsafe_allow_html=True)
-    
-    # Cột 4: Dropdown Tháng
     m_sel = c4.selectbox("Tháng", ["Mặc định (Hiện tại -> Hết tháng)"] + [f"Tháng {i}" for i in range(1, 13)], label_visibility="collapsed")
     
     styled, err = get_max_draft_summary(grp, m_sel, config)
@@ -44,6 +36,7 @@ def render_max_draft_tab(config):
             column_config={
                 "_dow": None, 
                 "_sort": None, 
-                "Date": st.column_config.TextColumn("Date") 
+                "Date": st.column_config.TextColumn("Date", pinned=True),   # <-- Cố định cột Date
+                "Point": st.column_config.TextColumn("Point", pinned=True)  # <-- Cố định cột Điểm Cạn
             }
         )
