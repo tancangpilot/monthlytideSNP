@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import os
 from utils.config_manager import load_config, save_config
 from tabs.tab_window import render_window_tab
@@ -15,13 +16,76 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
+# --- 3. ĐOẠN MÃ NGẦM JS: ĐẾM NGƯỢC 10 GIÂY VÀ GIẢ LẬP CLICK CHUỘT ---
+components.html(
+    """
+    <script>
+    const doc = window.parent.document;
+    let isOpen = false;
+    let autoCloseTimer = null;
+    let timeLeft = 10;
+
+    setInterval(() => {
+        const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+        if (!sidebar) return;
+
+        const isExpanded = sidebar.getAttribute('aria-expanded') === 'true';
+        const countdownDisplay = doc.getElementById('sidebar-countdown');
+
+        if (isExpanded && !isOpen) {
+            isOpen = true;
+            timeLeft = 10;
+            if (countdownDisplay) countdownDisplay.innerText = `Auto hide sidebar: ${timeLeft}s`;
+            
+            autoCloseTimer = setInterval(() => {
+                timeLeft -= 1;
+                if (countdownDisplay) countdownDisplay.innerText = `Auto hide sidebar: ${timeLeft}s`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(autoCloseTimer);
+                    if (countdownDisplay) countdownDisplay.innerText = "";
+                    
+                    // Phương pháp 2: Giả lập cú click chuột người thật (React cần bubbles: true)
+                    let closeBtns = [
+                        doc.querySelector('[data-testid="stSidebarCollapseButton"]'), // Streamlit mới
+                        doc.querySelector('button[aria-label="Collapse sidebar"]'),   // Streamlit bản giữa
+                        sidebar.querySelector('button') // Quét thô bạo nút bấm đầu tiên trong sidebar
+                    ];
+                    
+                    closeBtns.forEach(btn => {
+                        if (btn) {
+                            // Tạo event giả lập người dùng click chuột
+                            const clickEvent = new MouseEvent('click', {
+                                view: window.parent,
+                                bubbles: true,
+                                cancelable: true
+                            });
+                            btn.dispatchEvent(clickEvent); // Gửi event
+                            btn.click(); // Lệnh backup
+                        }
+                    });
+                }
+            }, 1000);
+            
+        } else if (!isExpanded && isOpen) {
+            isOpen = false;
+            clearInterval(autoCloseTimer);
+            if (countdownDisplay) countdownDisplay.innerText = "";
+        }
+    }, 500);
+    </script>
+    """,
+    height=0,
+    width=0,
+)
+
 if "config" not in st.session_state:
     st.session_state.config = load_config()
 
 config = st.session_state.config
 show_past_global = False
 
-# --- 3. XỬ LÝ ĐĂNG NHẬP VÀ ĐIỀU HƯỚNG (SIDEBAR) ---
+# --- 4. XỬ LÝ ĐĂNG NHẬP VÀ ĐIỀU HƯỚNG (SIDEBAR) ---
 with st.sidebar:
     current_page = st.radio(
         "Navigation", 
@@ -55,12 +119,20 @@ with st.sidebar:
             save_config(config)
             st.rerun()
             
-    # --- PHIÊN BẢN ---
+    # --- PHIÊN BẢN & ĐỒNG HỒ ĐẾM NGƯỢC ---
     st.divider()
-    st.caption("Phiên bản V 1.3")
+    st.markdown(
+        """
+        <div style="display: flex; justify-content: space-between; color: #888; font-size: 0.85em; margin-bottom: 10px;">
+            <span>Phiên bản V 1.7</span>
+            <span id="sidebar-countdown" style="font-weight: bold; color: #ff4b4b;"></span>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
 
-# --- 4. ĐIỀU HƯỚNG TRANG (ROUTING) ---
+# --- 5. ĐIỀU HƯỚNG TRANG CHÍNH ---
 if current_page == "🌊 Bảng thông tin":
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["CÁI MÉP", "CÁT LÁI", "Tide Calc", "Max Draft Table", "POB Table"])
 
@@ -76,7 +148,6 @@ if current_page == "🌊 Bảng thông tin":
         st.write("Đang phát triển Tab Tính Toán Thủy Triều...")
         
     with tab4:
-        # Đã xóa dòng st.write() và thay bằng hàm gọi Tab 4
         render_max_draft_tab(config)
 
     with tab5:
