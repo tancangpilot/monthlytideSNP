@@ -169,7 +169,7 @@ with st.sidebar:
     st.markdown(
         """
         <div style="display: flex; justify-content: space-between; color: #888; font-size: 0.85em; margin-bottom: 10px;">
-            <span>Phiên bản V 1.10</span>
+            <span>Phiên bản V 1.11</span>
             <span id="sidebar-countdown" style="font-weight: bold; color: #ff4b4b;"></span>
         </div>
         """, 
