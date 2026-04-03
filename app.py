@@ -23,7 +23,7 @@ components.html(
     const doc = window.parent.document;
     let isOpen = false;
     let autoCloseTimer = null;
-    let timeLeft = 10;
+    let timeLeft = 20;
 
     setInterval(() => {
         const sidebar = doc.querySelector('[data-testid="stSidebar"]');
@@ -34,7 +34,7 @@ components.html(
 
         if (isExpanded && !isOpen) {
             isOpen = true;
-            timeLeft = 10;
+            timeLeft = 20;
             if (countdownDisplay) countdownDisplay.innerText = `Auto hide sidebar: ${timeLeft}s`;
             
             autoCloseTimer = setInterval(() => {
@@ -122,7 +122,7 @@ if current_page == "🌊 Bảng thông tin":
 
     # --- HIỂN THỊ NỘI DUNG TAB TƯƠNG ỨNG ---
     if selected_tab == "CÁI MÉP":
-        note_cm = ":red[*Window is calculated for vessels LOA ≤ 300m; Draft ≤ 12.5m; GRT ≤ 80.000. The vessels: Draft > 12.5m; LOA > 300m; GRT > 80.000 is advised by Duty Pilot*] *(𝗨𝗕 - Unberthing / B - Berthing)*"
+        note_cm = ":red[*Window is calculated for vessels LOA ≤ 300m; Draft ≤ 12.5m; GRT ≤ 80.000. The vessels: Draft > 12.5m; LOA > 300m; GRT > 80.000 is advised by Duty Pilot*] *(𝗨𝗕-Unberthing / B-Berthing; B/E - Begin/End; P/S-Port/Starboard )*"
         render_window_tab(DATA_FILE, "WindowCM", show_past_global, note_cm, show_ub, show_b)
         
     elif selected_tab == "CÁT LÁI":
