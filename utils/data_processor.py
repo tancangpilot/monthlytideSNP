@@ -2,22 +2,29 @@ import pandas as pd
 import datetime
 import os
 
-# --- HÀM XỬ LÝ WINDOW (GIỮ NGUYÊN 100% CỦA CÁI MÉP/CÁT LÁI) ---
+# --- HÀM XỬ LÝ WINDOW ---
 def process_and_style_df(df, show_past_dates=False):
     df = df.dropna(how='all').copy()
     if 'Vung Tau' in df.columns:
         df = df.dropna(subset=['Vung Tau']).copy()
+        
     df.columns = [str(c).replace('Slack Time', 'Slack').replace('Starboard', 'Stb').replace('UB', '𝗨𝗕') for c in df.columns]
+    
     if 'Date' in df.columns:
         raw_dates = pd.to_datetime(df['Date'], errors='coerce')
         is_valid_date = raw_dates.apply(lambda x: pd.notna(x) and x.year > 2000)
-        real_dates = raw_dates.where(is_valid_date).ffill()
+        
+        # Sửa lỗi nhảy dòng Date (hất ngược 1 dòng rồi kéo xuống)
+        real_dates = raw_dates.where(is_valid_date).bfill(limit=1).ffill()
+        
         df['_actual_date'] = real_dates
         df['_dow'] = real_dates.dt.dayofweek
+        
         if not show_past_dates:
             today = pd.Timestamp.today().normalize()
             mask = (df['_actual_date'] >= today) | (df['_actual_date'].isna())
             df = df[mask].copy()
+
         display_dates = []
         last_date = None
         for idx, row in df.iterrows():
@@ -33,7 +40,8 @@ def process_and_style_df(df, show_past_dates=False):
 
     def to_hhmm(v):
         if pd.isna(v) or str(v).strip() in ["", "nan"]: return ""
-        if isinstance(v, datetime.time): return v.strftime("%H:%M")
+        if isinstance(v, datetime.time):
+            return v.strftime("%H:%M")
         vs = str(v).strip()
         if len(vs) >= 8 and vs[2] == ':' and vs[5] == ':': return vs[:5]
         if len(vs) >= 5 and vs[2] == ':': return vs[:5]
@@ -55,26 +63,34 @@ def process_and_style_df(df, show_past_dates=False):
             if day_idx == 5: bg = "background-color: rgba(255, 99, 71, 0.25);"
             elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
             else: bg = "background-color: rgba(50, 150, 250, 0.15);"
+        
+        # ĐÃ TĂNG SIZE CHỮ LÊN 18px CHUẨN MÀN HÌNH LỚN
+        base_css = bg + "font-size: 18px; " 
+        
         for col_name, val in row.items():
-            css = bg 
+            css = base_css 
             val_str = str(val)
             if 'Dir' in str(col_name):
-                if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 16px;"
-                elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 16px;"
-            elif 'Port' in str(col_name): css += "color: #ff4d4d; font-weight: normal;"
-            elif 'Stb' in str(col_name): css += "color: #00cc00; font-weight: normal;"
+                # Tăng size mũi tên lên 22px để tương xứng với font 18px
+                if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 22px;"
+                elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 22px;"
+            elif 'Port' in str(col_name):
+                css += "color: #ff4d4d; font-weight: normal;"
+            elif 'Stb' in str(col_name):
+                css += "color: #00cc00; font-weight: normal;"
             styles.append(css)
         return styles
+
     return df.style.apply(style_row, axis=1)
 
-# --- HÀM MAX DRAFT (TỰ ĐỘNG CHUYỂN THÁNG KHI QUÉT XUỐNG DƯỚI) ---
+
+# --- HÀM XỬ LÝ MAX DRAFT ---
 def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xlsx"):
     if not os.path.exists(file_path): return None, f"Thiếu file {file_path}"
     
     groups = {"LÒNG TÀU": ["HL27", "HL21", "HL6"], "SOÀI RẠP": ["VL", "TCHP", "BB"]}
     points = groups[group_mode]
     
-    # Từ điển hỗ trợ đọc mọi định dạng tháng
     month_map = {}
     months_en = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
     for i, m in enumerate(months_en, 1):
@@ -112,7 +128,6 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
                 col0_val = str(row[0]).strip().lower()
                 col1_val = str(row[1]).strip().lower()
                 
-                # NẾU CỘT 1 CÓ CHỮ THÁNG (vd: February) -> Tự cập nhật tháng
                 if col0_val in month_map:
                     current_month = month_map[col0_val]
                     day_count = 0
@@ -136,11 +151,13 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
                 else:
                     if dt < today or dt.month != today.month: continue
 
+                # ... (code phía trên giữ nguyên)
                 res_row = {"Date": dt.strftime("%d/%m"), "Point": p, "_dow": dt.dayofweek, "_sort": dt}
                 
                 for h in range(24):
-                    icon = " 🌙" if h in [5, 18] else (" ☀️" if h in [6, 17] else "")
-                    h_col = f"{h:02d}{icon}"
+                    # ĐÃ XÓA ICON CHO CỘT GỌN LẠI (Chỉ giữ lại "00", "01"..."23")
+                    h_col = f"{h:02d}"
+                    
                     if (h + 2) < len(row):
                         tide_val = pd.to_numeric(row[h+2], errors='coerce')
                     else: tide_val = float('nan')
@@ -151,6 +168,7 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
                     else: res_row[h_col] = ""
                         
                 final_list.append(res_row)
+                # ... (code phía dưới giữ nguyên)
                 
     except Exception as e: return None, f"Lỗi hệ thống: {e}"
 
@@ -158,20 +176,20 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
     
     df_res = pd.DataFrame(final_list).sort_values(by=["_sort", "Point"])
     
-    # LOGIC ẨN NGÀY TRÙNG NHAU
-    df_res['Date_display'] = df_res['Date']
+    # Ẩn ngày trùng lặp (Đã fix xóa cột phụ Date_display)
     mask = df_res['Date'].duplicated()
-    df_res.loc[mask, 'Date_display'] = ""
-    df_res['Date'] = df_res['Date_display']
+    df_res.loc[mask, 'Date'] = ""
     
     def style_sum(row):
         bg = ""
-        # Chỉ tô nền nếu ô Date không bị trống (dòng đầu tiên của ngày đó)
         if str(row.get('Date', '')).strip() != "":
             day_idx = row.get("_dow", -1)
             if day_idx == 5: bg = "background-color: rgba(255, 99, 71, 0.25);"
             elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
             else: bg = "background-color: rgba(50, 150, 250, 0.15);"
-        return [bg] * len(row)
+        
+        # TĂNG LÊN 18px Ở TAB MAX DRAFT ĐỂ ĐỒNG BỘ
+        css = bg + "font-size: 18px; "
+        return [css] * len(row)
 
     return df_res.style.apply(style_sum, axis=1), None
