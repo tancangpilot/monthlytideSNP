@@ -5,7 +5,7 @@ from utils.config_manager import load_config, save_config
 from tabs.tab_window import render_window_tab
 from tabs.tab_max_draft import render_max_draft_tab
 from tabs.tab_admin import render_admin_page
-from tabs.tab_tide_calc import render_tide_calc_tab  # ĐÃ THÊM IMPORT HÀM TIDE CALC
+from tabs.tab_tide_calc import render_tide_calc_tab
 
 # --- 1. ĐỊNH NGHĨA FILE ---
 DATA_FILE = "data_window.xlsx"
@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- 3. ĐOẠN MÃ NGẦM JS: ĐẾM NGƯỢC 10 GIÂY VÀ GIẢ LẬP CLICK CHUỘT ---
+# --- 3. ĐOẠN MÃ NGẦM JS: ĐẾM NGƯỢC 10 GIÂY VÀ TỰ ĐÓNG SIDEBAR ---
 components.html(
     """
     <script>
@@ -96,7 +96,7 @@ if current_page == "🌊 Bảng thông tin":
     
     selected_tab = st.radio(
         "Chọn tính năng:", 
-        ["CÁI MÉP", "CÁT LÁI", "Tide Calc Cat Lai", "Max Draft Table", "POB Table"], # ĐÃ ĐỔI TÊN TAB
+        ["CÁI MÉP", "CÁT LÁI", "Tide Calc Cat Lai", "Max Draft Table", "POB Table"], 
         horizontal=True, 
         label_visibility="collapsed"
     )
@@ -118,6 +118,28 @@ if current_page == "🌊 Bảng thông tin":
             m_sel = st.selectbox("Tháng", ["Mặc định (Hiện tại -> Hết tháng)"] + [f"Tháng {i}" for i in range(1, 13)])
             show_ub = True; show_b = True
             
+        elif selected_tab == "Tide Calc Cat Lai":
+            st.write("**🧭 Định tuyến (Routing)**")
+            direction = st.radio(
+                "Hướng đi", 
+                ["⬆️ Outbound (Đi ra)", "⬇️ Inbound (Đi vào)"],
+                label_visibility="collapsed"
+            )
+            
+            if "Outbound" in direction:
+                routes = [
+                    "1. Cát Lái ➔ Lòng Tàu ➔ P0 VT", 
+                    "2. Cát Lái ➔ Soài Rạp ➔ P0 SR (Hỗn hợp)", 
+                    "3. TC Hiệp Phước ➔ Soài Rạp ➔ P0 SR"
+                ]
+            else:
+                routes = [
+                    "1. P0 VT ➔ Lòng Tàu ➔ Cát Lái", 
+                    "2. P0 SR ➔ Soài Rạp ➔ TC Hiệp Phước"
+                ]
+            
+            route_sel = st.radio("Chọn tuyến", routes)
+            
         else:
             st.caption("Tab này chưa có tính năng riêng.")
             show_ub = True; show_b = True; grp = None; m_sel = None
@@ -131,8 +153,8 @@ if current_page == "🌊 Bảng thông tin":
         note_cl = "*The vessels: Draft > 10.0m or Departure outside Window must be advised by the duty pilot.*"
         render_window_tab(DATA_FILE, "WindowCL", show_past_global, note_cl, show_ub, show_b)
         
-    elif selected_tab == "Tide Calc Cat Lai":  # GỌI HÀM GIAO DIỆN TIDE CALC
-        render_tide_calc_tab()
+    elif selected_tab == "Tide Calc Cat Lai":  
+        render_tide_calc_tab(route_sel)
         
     elif selected_tab == "Max Draft Table":
         render_max_draft_tab(config, grp, m_sel)
@@ -166,13 +188,13 @@ elif current_page == "⚙️ Quản lý hệ thống":
                 save_config(config)
                 st.rerun()
 
-# --- PHIÊN BẢN & ĐỒNG HỒ ---
+# --- PHIÊN BẢN VÀ ĐỒNG HỒ ĐẾM NGƯỢC ---
 with st.sidebar:
     st.divider()
     st.markdown(
         """
         <div style="display: flex; justify-content: space-between; color: #888; font-size: 0.85em; margin-bottom: 10px;">
-            <span>Phiên bản V 1.12</span>
+            <span>Phiên bản V 1.13</span>
             <span id="sidebar-countdown" style="font-weight: bold; color: #ff4b4b;"></span>
         </div>
         """, 
