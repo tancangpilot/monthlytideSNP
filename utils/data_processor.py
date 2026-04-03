@@ -14,9 +14,7 @@ def process_and_style_df(df, show_past_dates=False):
         raw_dates = pd.to_datetime(df['Date'], errors='coerce')
         is_valid_date = raw_dates.apply(lambda x: pd.notna(x) and x.year > 2000)
         
-        # Sửa lỗi nhảy dòng Date (hất ngược 1 dòng rồi kéo xuống)
         real_dates = raw_dates.where(is_valid_date).bfill(limit=1).ffill()
-        
         df['_actual_date'] = real_dates
         df['_dow'] = real_dates.dt.dayofweek
         
@@ -64,16 +62,14 @@ def process_and_style_df(df, show_past_dates=False):
             elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
             else: bg = "background-color: rgba(50, 150, 250, 0.15);"
         
-        # ĐÃ TĂNG SIZE CHỮ LÊN 18px CHUẨN MÀN HÌNH LỚN
-        base_css = bg + "font-size: 18px; " 
+        base_css = bg + "font-size: 16px; " 
         
         for col_name, val in row.items():
             css = base_css 
             val_str = str(val)
             if 'Dir' in str(col_name):
-                # Tăng size mũi tên lên 22px để tương xứng với font 18px
-                if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 22px;"
-                elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 22px;"
+                if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 20px;"
+                elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 20px;"
             elif 'Port' in str(col_name):
                 css += "color: #ff4d4d; font-weight: normal;"
             elif 'Stb' in str(col_name):
@@ -81,10 +77,15 @@ def process_and_style_df(df, show_past_dates=False):
             styles.append(css)
         return styles
 
-    return df.style.apply(style_row, axis=1)
+    # ÉP PANDAS ẨN 2 CỘT NÀY NGAY TRƯỚC KHI TRẢ VỀ FRONTEND
+    styler = df.style.apply(style_row, axis=1)
+    if hasattr(styler, "hide"):
+        return styler.hide(subset=["_dow", "_actual_date"], axis="columns")
+    else:
+        return styler.hide_columns(["_dow", "_actual_date"])
 
 
-# --- HÀM XỬ LÝ MAX DRAFT ---
+# --- HÀM XỬ LÝ MAX DRAFT ĐÃ CHỈNH LẠI 1 SỐ THẬP PHÂN ---
 def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xlsx"):
     if not os.path.exists(file_path): return None, f"Thiếu file {file_path}"
     
@@ -94,15 +95,11 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
     month_map = {}
     months_en = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
     for i, m in enumerate(months_en, 1):
-        month_map[m] = i
-        month_map[m[:3]] = i  
+        month_map[m] = i; month_map[m[:3]] = i  
     for i in range(1, 13):
-        month_map[str(i)] = i 
-        month_map[f"{i}.0"] = i 
-        month_map[f"tháng {i}"] = i
-        month_map[f"thang {i}"] = i
-        month_map[f"tháng{i}"] = i
-        month_map[f"thang{i}"] = i
+        month_map[str(i)] = i; month_map[f"{i}.0"] = i 
+        month_map[f"tháng {i}"] = i; month_map[f"thang {i}"] = i
+        month_map[f"tháng{i}"] = i; month_map[f"thang{i}"] = i
         
     final_list = []
     try:
@@ -116,7 +113,7 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
 
         for p in points:
             if p not in xl.sheet_names: continue
-            df_raw = pd.read_excel(file_path, sheet_name=p, header=None)
+            df_raw = pd.read_excel(file_path, header=None, sheet_name=p)
             ukc_day, ukc_night = config["ukc_day"]/100.0, config["ukc_night"]/100.0
             depth = float(config[p.lower()])
 
@@ -128,16 +125,11 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
                 col0_val = str(row[0]).strip().lower()
                 col1_val = str(row[1]).strip().lower()
                 
-                if col0_val in month_map:
-                    current_month = month_map[col0_val]
-                    day_count = 0
+                if col0_val in month_map: current_month = month_map[col0_val]; day_count = 0
                 
                 is_numeric_day = False
-                try:
-                    day_count = int(float(col1_val))
-                    is_numeric_day = True
-                except ValueError:
-                    pass
+                try: day_count = int(float(col1_val)); is_numeric_day = True
+                except ValueError: pass
 
                 if is_numeric_day: pass
                 elif col1_val in ["cn", "t2", "t3", "t4", "t5", "t6", "t7"]: day_count += 1
@@ -151,32 +143,26 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
                 else:
                     if dt < today or dt.month != today.month: continue
 
-                # ... (code phía trên giữ nguyên)
                 res_row = {"Date": dt.strftime("%d/%m"), "Point": p, "_dow": dt.dayofweek, "_sort": dt}
                 
                 for h in range(24):
-                    # ĐÃ XÓA ICON CHO CỘT GỌN LẠI (Chỉ giữ lại "00", "01"..."23")
                     h_col = f"{h:02d}"
-                    
-                    if (h + 2) < len(row):
-                        tide_val = pd.to_numeric(row[h+2], errors='coerce')
+                    if (h + 2) < len(row): tide_val = pd.to_numeric(row[h+2], errors='coerce')
                     else: tide_val = float('nan')
                         
                     u = ukc_day if (6 <= h <= 17) else ukc_night
-                    if pd.notna(tide_val):
-                        res_row[h_col] = f"{(tide_val + depth) / (1 + u):.2f}"
+                    if pd.notna(tide_val): 
+                        # Đã ép chuẩn 1 chữ số thập phân (phần chục)
+                        res_row[h_col] = f"{(tide_val + depth) / (1 + u):.1f}"
                     else: res_row[h_col] = ""
                         
                 final_list.append(res_row)
-                # ... (code phía dưới giữ nguyên)
                 
     except Exception as e: return None, f"Lỗi hệ thống: {e}"
 
     if not final_list: return None, "Không tìm thấy dữ liệu."
     
     df_res = pd.DataFrame(final_list).sort_values(by=["_sort", "Point"])
-    
-    # Ẩn ngày trùng lặp (Đã fix xóa cột phụ Date_display)
     mask = df_res['Date'].duplicated()
     df_res.loc[mask, 'Date'] = ""
     
@@ -188,7 +174,6 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
             elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
             else: bg = "background-color: rgba(50, 150, 250, 0.15);"
         
-        # TĂNG LÊN 18px Ở TAB MAX DRAFT ĐỂ ĐỒNG BỘ
         css = bg + "font-size: 18px; "
         return [css] * len(row)
 
