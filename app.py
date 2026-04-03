@@ -5,6 +5,7 @@ from utils.config_manager import load_config, save_config
 from tabs.tab_window import render_window_tab
 from tabs.tab_max_draft import render_max_draft_tab
 from tabs.tab_admin import render_admin_page
+from tabs.tab_tide_calc import render_tide_calc_tab  # ĐÃ THÊM IMPORT HÀM TIDE CALC
 
 # --- 1. ĐỊNH NGHĨA FILE ---
 DATA_FILE = "data_window.xlsx"
@@ -16,14 +17,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- 3. ĐOẠN MÃ NGẦM JS: ĐẾM NGƯỢC 10 GIÂY VÀ GIẢ LẬP CLICK ĐÓNG SIDEBAR ---
+# --- 3. ĐOẠN MÃ NGẦM JS: ĐẾM NGƯỢC 10 GIÂY VÀ GIẢ LẬP CLICK CHUỘT ---
 components.html(
     """
     <script>
     const doc = window.parent.document;
     let isOpen = false;
     let autoCloseTimer = null;
-    let timeLeft = 20;
+    let timeLeft = 10;
 
     setInterval(() => {
         const sidebar = doc.querySelector('[data-testid="stSidebar"]');
@@ -34,7 +35,7 @@ components.html(
 
         if (isExpanded && !isOpen) {
             isOpen = true;
-            timeLeft = 20;
+            timeLeft = 10;
             if (countdownDisplay) countdownDisplay.innerText = `Auto hide sidebar: ${timeLeft}s`;
             
             autoCloseTimer = setInterval(() => {
@@ -44,15 +45,22 @@ components.html(
                 if (timeLeft <= 0) {
                     clearInterval(autoCloseTimer);
                     if (countdownDisplay) countdownDisplay.innerText = "";
+                    
                     let closeBtns = [
                         doc.querySelector('[data-testid="stSidebarCollapseButton"]'),
                         doc.querySelector('button[aria-label="Collapse sidebar"]'),
-                        sidebar.querySelector('button')
+                        sidebar.querySelector('button') 
                     ];
+                    
                     closeBtns.forEach(btn => {
                         if (btn) {
-                            const clickEvent = new MouseEvent('click', { view: window.parent, bubbles: true, cancelable: true });
-                            btn.dispatchEvent(clickEvent); btn.click();
+                            const clickEvent = new MouseEvent('click', {
+                                view: window.parent,
+                                bubbles: true,
+                                cancelable: true
+                            });
+                            btn.dispatchEvent(clickEvent); 
+                            btn.click(); 
                         }
                     });
                 }
@@ -83,18 +91,16 @@ with st.sidebar:
     current_page = st.radio("Navigation", ["🌊 Bảng thông tin", "⚙️ Quản lý hệ thống"], label_visibility="collapsed")
     st.divider()
 
-# --- 5. LOGIC HIỂN THỊ CHÍNH (VÀ SIDEBAR ĐỘNG) ---
+# --- 5. LOGIC HIỂN THỊ CHÍNH ---
 if current_page == "🌊 Bảng thông tin":
     
-    # Dùng Menu Ngang thay cho Tabs để bắt được thao tác click của người dùng
     selected_tab = st.radio(
         "Chọn tính năng:", 
-        ["CÁI MÉP", "CÁT LÁI", "Tide Calc", "Max Draft Table", "POB Table"], 
+        ["CÁI MÉP", "CÁT LÁI", "Tide Calc Cat Lai", "Max Draft Table", "POB Table"], # ĐÃ ĐỔI TÊN TAB
         horizontal=True, 
         label_visibility="collapsed"
     )
     
-    # --- BƠM TUỲ CHỌN ĐỘNG VÀO SIDEBAR TÙY THEO TAB ĐANG CHỌN ---
     with st.sidebar:
         st.markdown("### ⚙️ Tuỳ chọn chung")
         show_past_global = st.toggle("🕰️ Hiển thị ngày đã qua", value=False)
@@ -103,40 +109,37 @@ if current_page == "🌊 Bảng thông tin":
         st.markdown(f"### 🎯 Tuỳ chọn: {selected_tab}")
         
         if selected_tab in ["CÁI MÉP", "CÁT LÁI"]:
-            # Tính năng riêng cho Cái Mép & Cát Lái
             show_ub = st.toggle("Ẩn/Hiện UB (Rời)", value=True)
             show_b = st.toggle("Ẩn/Hiện B (Cập)", value=True)
-            grp = None
-            m_sel = None
+            grp = None; m_sel = None
             
         elif selected_tab == "Max Draft Table":
-            # Tính năng riêng cho Max Draft
             grp = st.selectbox("Sông", ["LÒNG TÀU", "SOÀI RẠP"])
             m_sel = st.selectbox("Tháng", ["Mặc định (Hiện tại -> Hết tháng)"] + [f"Tháng {i}" for i in range(1, 13)])
-            show_ub = True
-            show_b = True
+            show_ub = True; show_b = True
             
         else:
             st.caption("Tab này chưa có tính năng riêng.")
             show_ub = True; show_b = True; grp = None; m_sel = None
 
-    # --- HIỂN THỊ NỘI DUNG TAB TƯƠNG ỨNG ---
+    # --- ĐIỀU HƯỚNG HIỂN THỊ NỘI DUNG ---
     if selected_tab == "CÁI MÉP":
-        note_cm = ":red[*Window is calculated for vessels LOA ≤ 300m; Draft ≤ 12.5m; GRT ≤ 80.000. The vessels: Draft > 12.5m; LOA > 300m; GRT > 80.000 is advised by Duty Pilot*] *(𝗨𝗕-Unberthing / B-Berthing; B/E - Begin/End; P/S-Port/Starboard )*"
+        note_cm = ":red[*Window is calculated for vessels LOA ≤ 300m; Draft ≤ 12.5m; GRT ≤ 80.000. The vessels: Draft > 12.5m; LOA > 300m; GRT > 80.000 is advised by Duty Pilot*] *(𝗨𝗕 - Unberthing / B - Berthing)*"
         render_window_tab(DATA_FILE, "WindowCM", show_past_global, note_cm, show_ub, show_b)
         
     elif selected_tab == "CÁT LÁI":
         note_cl = "*The vessels: Draft > 10.0m or Departure outside Window must be advised by the duty pilot.*"
         render_window_tab(DATA_FILE, "WindowCL", show_past_global, note_cl, show_ub, show_b)
         
-    elif selected_tab == "Tide Calc":
-        st.write("Đang phát triển Tab Tính Toán Thủy Triều...")
+    elif selected_tab == "Tide Calc Cat Lai":  # GỌI HÀM GIAO DIỆN TIDE CALC
+        render_tide_calc_tab()
         
     elif selected_tab == "Max Draft Table":
         render_max_draft_tab(config, grp, m_sel)
         
     elif selected_tab == "POB Table":
         st.write("Đang phát triển Tab POB Table...")
+
 
 elif current_page == "⚙️ Quản lý hệ thống":
     if config["logged_in"]:
@@ -163,13 +166,13 @@ elif current_page == "⚙️ Quản lý hệ thống":
                 save_config(config)
                 st.rerun()
 
-# --- PHIÊN BẢN & ĐỒNG HỒ ĐẾM NGƯỢC (ĐƯA XUỐNG CUỐI SIDEBAR) ---
+# --- PHIÊN BẢN & ĐỒNG HỒ ---
 with st.sidebar:
     st.divider()
     st.markdown(
         """
         <div style="display: flex; justify-content: space-between; color: #888; font-size: 0.85em; margin-bottom: 10px;">
-            <span>Phiên bản V 1.11</span>
+            <span>Phiên bản V 1.12</span>
             <span id="sidebar-countdown" style="font-weight: bold; color: #ff4b4b;"></span>
         </div>
         """, 
