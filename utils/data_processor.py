@@ -62,7 +62,7 @@ def process_and_style_df(df, show_past_dates=False):
             elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
             else: bg = "background-color: rgba(50, 150, 250, 0.15);"
         
-        base_css = bg + "font-size: 16px; " 
+        base_css = bg + "font-size: 28px; " 
         
         for col_name, val in row.items():
             css = base_css 
@@ -160,6 +160,8 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
                 
     except Exception as e: return None, f"Lỗi hệ thống: {e}"
 
+    # ... (Phần trên giữ nguyên)
+
     if not final_list: return None, "Không tìm thấy dữ liệu."
     
     df_res = pd.DataFrame(final_list).sort_values(by=["_sort", "Point"])
@@ -174,7 +176,13 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
             elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
             else: bg = "background-color: rgba(50, 150, 250, 0.15);"
         
-        css = bg + "font-size: 18px; "
+        # Tôi vẫn để font-size ở đây để hỗ trợ các trình duyệt cũ
+        css = bg + "font-size: 20px; "
         return [css] * len(row)
 
-    return df_res.style.apply(style_sum, axis=1), None
+    # --- SỬA TẠI ĐÂY: ÉP ẨN CỘT TRƯỚC KHI TRẢ VỀ ---
+    styler = df_res.style.apply(style_sum, axis=1)
+    if hasattr(styler, "hide"):
+        return styler.hide(subset=["_dow", "_sort"], axis="columns"), None
+    else:
+        return styler.hide_columns(["_dow", "_sort"]), None

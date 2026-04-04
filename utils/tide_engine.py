@@ -102,7 +102,7 @@ def calculate_opt1_safety(route_sel, pob_date, pob_time, draft, config, tide_db)
         results.append({"Điểm cạn": pt_display, "ETA": eta.strftime("%H:%M %d/%m"), "Thủy triều": f"{tide:.1f} m", "UKC": f"{ukc_pct}%", "Max Draft": f"{max_d:.1f} m", "Kết quả": status})
     return results, is_safe, min_max_draft, bottleneck
 
-# --- THUẬT TOÁN OPTION 2 (BÓC TÁCH BẢNG CHI TIẾT TỪNG GIỜ) ---
+# --- THUẬT TOÁN OPTION 2 ---
 def calculate_opt2_safe_times(route_sel, pob_date, draft, config, tide_db):
     waypoints = ROUTE_MAP.get(route_sel, [])
     safe_times_detail = []
@@ -111,78 +111,48 @@ def calculate_opt2_safe_times(route_sel, pob_date, draft, config, tide_db):
         for m in [0, 30]:
             test_time = datetime.time(h, m)
             test_dt = datetime.datetime.combine(pob_date, test_time)
-            
             is_safe = True
             min_max_draft = 99.9
             point_drafts = {}
-            
             for pt, transit_mins in waypoints:
                 eta = test_dt + datetime.timedelta(minutes=transit_mins)
                 tide = get_tide_at_eta(tide_db, pt, eta)
-                if tide is None or pd.isna(tide): 
-                    is_safe = False; break
-                
+                if tide is None or pd.isna(tide): is_safe = False; break
                 depth = float(config.get(pt.lower(), 0))
                 ukc_pct = config["ukc_day"] if 6 <= eta.hour <= 17 else config["ukc_night"]
                 max_d = (tide + depth) / (1 + ukc_pct / 100.0)
-                
                 point_drafts[pt] = max_d
                 if max_d < min_max_draft: min_max_draft = max_d
-                    
-                if draft > max_d: 
-                    is_safe = False; break
-                    
+                if draft > max_d: is_safe = False; break
             if is_safe: 
-                safe_times_detail.append({
-                    "time": test_time,
-                    "point_drafts": point_drafts,
-                    "min_max_draft": min_max_draft
-                })
-                
+                safe_times_detail.append({"time": test_time, "point_drafts": point_drafts, "min_max_draft": min_max_draft})
     return safe_times_detail
 
-# --- THUẬT TOÁN OPTION 3: TÌM ĐỈNH MAX DRAFT (CÓ BÓC TÁCH ĐIỂM CẠN) ---
-def calculate_opt3_max_drafts(route_sel, pob_date, config, tide_db):
+# --- HÀM MỚI TÍCH HỢP CHO OPTION 2: LẤY 3 MAX VÀ 3 MIN DRAFT TRONG NGÀY ---
+def get_day_draft_extrema(route_sel, pob_date, config, tide_db):
     waypoints = ROUTE_MAP.get(route_sel, [])
-    draft_curve = []
+    all_drafts = set()
 
     for h in range(24):
         for m in [0, 30]:
             test_dt = datetime.datetime.combine(pob_date, datetime.time(h, m))
-            min_max_draft, point_drafts, is_valid = 99.9, {}, True
+            min_max_draft = 99.9
+            is_valid = True
             for pt, transit_mins in waypoints:
                 eta = test_dt + datetime.timedelta(minutes=transit_mins)
                 tide = get_tide_at_eta(tide_db, pt, eta)
-                if tide is None or pd.isna(tide): is_valid = False; break
+                if tide is None or pd.isna(tide):
+                    is_valid = False; break
                 depth = float(config.get(pt.lower(), 0))
                 u = config["ukc_day"] if 6 <= eta.hour <= 17 else config["ukc_night"]
                 max_d = (tide + depth) / (1 + u / 100.0)
-                point_drafts[pt] = max_d
                 if max_d < min_max_draft: min_max_draft = max_d
-            if is_valid:
-                draft_curve.append({"time": datetime.time(h, m), "draft": min_max_draft, "dt": test_dt, "point_drafts": point_drafts})
+            if is_valid and min_max_draft != 99.9:
+                all_drafts.add(round(min_max_draft, 1))
 
-    if not draft_curve: return []
-    peaks = []
-    for i in range(len(draft_curve)):
-        prev_d = draft_curve[i-1]["draft"] if i > 0 else draft_curve[0]["draft"]
-        next_d = draft_curve[i+1]["draft"] if i < len(draft_curve)-1 else draft_curve[-1]["draft"]
-        if draft_curve[i]["draft"] >= prev_d and draft_curve[i]["draft"] >= next_d:
-            peaks.append(draft_curve[i])
+    sorted_drafts = sorted(list(all_drafts))
+    if not sorted_drafts: return [], []
 
-    peaks.sort(key=lambda x: x["draft"], reverse=True)
-    distinct_peaks = []
-    for p in peaks:
-        if all(abs((p["dt"] - dp["dt"]).total_seconds()) >= 4*3600 for dp in distinct_peaks):
-            distinct_peaks.append(p)
-        if len(distinct_peaks) == 2: break
-    distinct_peaks.sort(key=lambda x: x["time"])
-
-    results = []
-    for peak in distinct_peaks:
-        vicinity = [pt for pt in draft_curve if abs((pt["dt"] - peak["dt"]).total_seconds()) <= 2.0 * 3600]
-        vicinity.sort(key=lambda x: x["draft"], reverse=True)
-        top5 = vicinity[:5]
-        top5.sort(key=lambda x: x["time"])
-        results.append({"peak_time": peak["time"], "peak_draft": peak["draft"], "top5": top5})
-    return results
+    min_3 = sorted_drafts[:3]
+    max_3 = sorted(sorted_drafts[-3:], reverse=True) # Lấy 3 mớn lớn nhất, xếp giảm dần
+    return max_3, min_3
