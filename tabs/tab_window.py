@@ -32,8 +32,8 @@ def render_window_tab(file_path, sheet_name, show_past, disclaimer_text, show_ub
                 
                 # Tạo tiêu đề viết tắt
                 short_name = str(original_col)
-                short_name = short_name.replace("Begin", "B.").replace("End", "E.")
-                short_name = short_name.replace("Port", "P.").replace("Stb", "S.")
+                short_name = short_name.replace("Begin", "B").replace("End", "E")
+                short_name = short_name.replace("Port", "P").replace("Stb", "S")
                 short_name = short_name.replace("Starboard", "S.") # Phòng hờ file có chữ Starboard gốc
                 
                 # Áp dụng tên viết tắt và gắn Tooltip giải nghĩa
