@@ -116,6 +116,7 @@ if current_page == "🌊 Bảng thông tin":
         Bờ Băng (BB): <span style="color:#1E90FF; font-weight:bold;">-{config.get('bb', 6.7)}m</span> / 
         Hạ lưu TCHP: <span style="color:#1E90FF; font-weight:bold;">-{config.get('tchp', 8.0)}m</span> / 
         Vàm Láng: <span style="color:#1E90FF; font-weight:bold;">-{config.get('vl', 8.0)}m</span> 
+        <br>
         <i style="color: #666; font-size: 13px;">(Update: {last_update})</i>
     </div>
     """, unsafe_allow_html=True)
