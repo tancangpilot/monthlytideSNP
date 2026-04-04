@@ -118,9 +118,8 @@ if current_page == "🌊 Bảng thông tin":
         else:
             show_ub = True; show_b = True; grp = None; m_sel = None
 
-    # ĐÃ KHÔI PHỤC ĐẦY ĐỦ VĂN BẢN GHI CHÚ
     if selected_tab == "CÁI MÉP":
-        note_cm = ":red[*Window is calculated for vessels LOA ≤ 300m; Draft ≤ 12.5m; GRT ≤ 80.000. The vessels: Draft > 12.5m; LOA > 300m; GRT > 80.000 is advised by Duty Pilot*] *(𝗨𝗕 - Unberthing / B - Berthing)*"
+        note_cm = ":red[*Window is calculated for vessels LOA ≤ 300m; Draft ≤ 12.5m; GRT ≤ 80.000. The vessels: Draft > 12.5m; LOA > 300m; GRT > 80.000 is advised by Duty Pilot*] *(**UB** - Unberthing / **B** - Berthing)*"
         render_window_tab(DATA_FILE, "WindowCM", show_past_global, note_cm, show_ub, show_b)
     elif selected_tab == "CÁT LÁI":
         note_cl = "*The vessels: Draft > 10.0m or Departure outside Window must be advised by the duty pilot.*"
@@ -133,14 +132,38 @@ if current_page == "🌊 Bảng thông tin":
         st.write("Đang phát triển Tab POB Table...")
 
 elif current_page == "⚙️ Quản lý hệ thống":
-    if config["logged_in"]: render_admin_page(config)
-    else:
+    if config.get("logged_in", False):
+        # Hiện nút đăng xuất ở Sidebar nếu đã đăng nhập thành công
         with st.sidebar:
-            st.header("🔑 Đăng nhập")
-            u = st.text_input("Tài khoản"); p = st.text_input("Mật khẩu", type="password")
-            if st.button("Đăng nhập") and u == "admin" and p == "123456":
-                config["logged_in"] = True; save_config(config); st.rerun()
+            st.success("Đã đăng nhập!")
+            if st.button("Đăng xuất"):
+                config["logged_in"] = False
+                save_config(config)
+                st.rerun()
+        
+        # Gọi hàm vẽ giao diện Admin
+        render_admin_page(config)
+    else:
+        # CHUYỂN FORM ĐĂNG NHẬP RA GIỮA MÀN HÌNH CHÍNH
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            with st.container(border=True):
+                st.markdown("<h3 style='text-align: center;'>🔑 Đăng nhập hệ thống</h3>", unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                u = st.text_input("Tài khoản")
+                p = st.text_input("Mật khẩu", type="password")
+                
+                if st.button("Đăng nhập", use_container_width=True, type="primary"):
+                    if u == "admin" and p == "123456":
+                        config["logged_in"] = True
+                        save_config(config)
+                        st.rerun()
+                    else:
+                        st.error("Sai tài khoản hoặc mật khẩu!")
 
+# --- PHIÊN BẢN & ĐỒNG HỒ ---
 with st.sidebar:
     st.divider()
-    st.markdown(f'<div style="display: flex; justify-content: space-between; font-size: 0.85em;"><span>V 1.18</span><span id="sidebar-countdown" style="color: #ff4b4b;"></span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="display: flex; justify-content: space-between; font-size: 0.85em;"><span>V 1.20</span><span id="sidebar-countdown" style="color: #ff4b4b;"></span></div>', unsafe_allow_html=True)
