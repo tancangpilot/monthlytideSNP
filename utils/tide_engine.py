@@ -3,6 +3,9 @@ import pandas as pd
 import streamlit as st
 from utils.data_processor import process_and_style_df
 
+# KHỞI TẠO MÚI GIỜ VIỆT NAM (UTC+7)
+VN_TZ = datetime.timezone(datetime.timedelta(hours=7))
+
 ROUTE_MAP = {
     "1. P0 VT ➔ Lòng Tàu ➔ Cát Lái": [("HL27", 120), ("HL21", 150), ("HL6", 240)],
     "2. P0 SR ➔ Soài Rạp ➔ TC Hiệp Phước": [("VL", 90), ("TCHP", 180)],
@@ -22,7 +25,8 @@ def load_all_tide_data(file_path="data_tide.xlsx"):
 
     try:
         xl = pd.ExcelFile(file_path)
-        today = pd.Timestamp.today().normalize()
+        # SỬA GIỜ Ở ĐÂY
+        today = datetime.datetime.now(VN_TZ).date()
         year = today.year
         for sheet in xl.sheet_names:
             df = pd.read_excel(file_path, sheet_name=sheet, header=None)
@@ -83,7 +87,6 @@ def get_tide_at_eta(tide_db, point, eta_dt):
     if pd.isna(v1) or pd.isna(v2): return v1 
     return v1 + (v2 - v1) * (m / 60.0)
 
-# --- THUẬT TOÁN ĐỐI CHIẾU DÒNG CHẢY (ĐÃ SỬA LỖI TÌM CỘT) ---
 def check_current_condition(pob_dt, direction, raw_win_df):
     if raw_win_df is None or raw_win_df.empty: return False
     try:
@@ -107,10 +110,7 @@ def check_current_condition(pob_dt, direction, raw_win_df):
             vt_data.sort(key=lambda x: x['dt'])
             for i in range(len(vt_data)):
                 vt_dt = vt_data[i]['dt']
-                # ĐK1: POB trước 2h và sau 30p so với HW/LW
                 if vt_dt - datetime.timedelta(hours=2) <= pob_dt <= vt_dt + datetime.timedelta(minutes=30): return True
-                
-                # ĐK2: Nước chết (Biên độ <= 1.0m) thì thông từ HW tới LW
                 if i < len(vt_data) - 1:
                     next_dt = vt_data[i+1]['dt']
                     if abs(vt_data[i]['level'] - vt_data[i+1]['level']) <= 1.0:
@@ -119,14 +119,12 @@ def check_current_condition(pob_dt, direction, raw_win_df):
 
         else: # Outbound
             df_outb = raw_win_df[raw_win_df['_actual_date'] == pob_date].copy()
-            
-            # Quét cột thông minh, nhận diện cả chữ viết tắt (UB-P, UB-S)
             b_cols = [c for c in df_outb.columns if "begin" in str(c).lower() and "ub" in str(c).lower()]
             e_cols = [c for c in df_outb.columns if "end" in str(c).lower() and "ub" in str(c).lower()]
             
             if b_cols and e_cols:
-                b_col = b_cols[0]  # Thường Begin UB-Port nằm trước
-                e_col = e_cols[-1] # Thường End UB-Stb nằm sau cùng
+                b_col = b_cols[0]  
+                e_col = e_cols[-1] 
             else:
                 return False
 
@@ -138,10 +136,7 @@ def check_current_condition(pob_dt, direction, raw_win_df):
                         e_time = e_val if isinstance(e_val, datetime.time) else datetime.datetime.strptime(str(e_val).strip()[:5], "%H:%M").time()
                         b_dt = datetime.datetime.combine(pob_date, b_time)
                         e_dt = datetime.datetime.combine(pob_date, e_time)
-                        
-                        if e_dt < b_dt: e_dt += datetime.timedelta(days=1) # Chống lỗi qua ngày mới
-                        
-                        # ĐK: Nằm lọt khe Begin UB Port và End UB Starboard
+                        if e_dt < b_dt: e_dt += datetime.timedelta(days=1)
                         if b_dt <= pob_dt <= e_dt: return True
                     except: pass
             return False
@@ -172,7 +167,9 @@ def calculate_opt2_safe_times(route_sel, pob_date, draft, config, tide_db, direc
     safe_times_detail = []
     raw_win_df = load_raw_window()
     
-    today, now = datetime.date.today(), datetime.datetime.now()
+    # SỬA GIỜ Ở ĐÂY: KHÓA CHẶT MÚI GIỜ VIỆT NAM
+    now = datetime.datetime.now(VN_TZ)
+    today = now.date()
     start_h, start_m = (now.hour, 0 if now.minute < 30 else 30) if pob_date == today else (0, 0)
     
     for h in range(24):
