@@ -62,7 +62,7 @@ def process_and_style_df(df, show_past_dates=False):
             elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
             else: bg = "background-color: rgba(50, 150, 250, 0.15);"
         
-        base_css = bg + "font-size: 28px; " 
+        base_css = bg + "font-size: 22px; " 
         
         for col_name, val in row.items():
             css = base_css 

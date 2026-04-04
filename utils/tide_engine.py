@@ -47,6 +47,16 @@ def load_all_tide_data(file_path="data_tide.xlsx"):
         return tide_db
     except Exception as e: return None
 
+@st.cache_data
+def load_raw_window(file_path="data_window.xlsx"):
+    try:
+        df = pd.read_excel(file_path, sheet_name="WindowCL")
+        raw_dates = pd.to_datetime(df['Date'], errors='coerce')
+        is_valid = raw_dates.apply(lambda x: pd.notna(x) and x.year > 2000)
+        df['_actual_date'] = raw_dates.where(is_valid).bfill(limit=1).ffill().dt.date
+        return df
+    except: return None
+
 def get_window_cl_for_date(target_date, file_path="data_window.xlsx"):
     try:
         df = pd.read_excel(file_path, sheet_name="WindowCL")
@@ -73,47 +83,103 @@ def get_tide_at_eta(tide_db, point, eta_dt):
     if pd.isna(v1) or pd.isna(v2): return v1 
     return v1 + (v2 - v1) * (m / 60.0)
 
-# --- THUẬT TOÁN OPTION 1 ---
+# --- THUẬT TOÁN ĐỐI CHIẾU DÒNG CHẢY (ĐÃ SỬA LỖI TÌM CỘT) ---
+def check_current_condition(pob_dt, direction, raw_win_df):
+    if raw_win_df is None or raw_win_df.empty: return False
+    try:
+        pob_date = pob_dt.date()
+        if "Inbound" in direction:
+            df_inb = raw_win_df[raw_win_df['_actual_date'].isin([pob_date, pob_date + datetime.timedelta(days=1)])].copy()
+            vt_data = []
+            
+            vt_col = next((c for c in raw_win_df.columns if "vung" in str(c).lower()), None)
+            lvl_col = next((c for c in raw_win_df.columns if "level" in str(c).lower()), None)
+            if not vt_col or not lvl_col: return False
+            
+            for idx, row in df_inb.iterrows():
+                vt_time, lvl = row.get(vt_col), row.get(lvl_col)
+                if pd.notna(vt_time) and pd.notna(lvl):
+                    try:
+                        t = vt_time if isinstance(vt_time, datetime.time) else datetime.datetime.strptime(str(vt_time).strip()[:5], "%H:%M").time()
+                        vt_data.append({'dt': datetime.datetime.combine(row['_actual_date'], t), 'level': float(lvl)})
+                    except: pass
+            
+            vt_data.sort(key=lambda x: x['dt'])
+            for i in range(len(vt_data)):
+                vt_dt = vt_data[i]['dt']
+                # ĐK1: POB trước 2h và sau 30p so với HW/LW
+                if vt_dt - datetime.timedelta(hours=2) <= pob_dt <= vt_dt + datetime.timedelta(minutes=30): return True
+                
+                # ĐK2: Nước chết (Biên độ <= 1.0m) thì thông từ HW tới LW
+                if i < len(vt_data) - 1:
+                    next_dt = vt_data[i+1]['dt']
+                    if abs(vt_data[i]['level'] - vt_data[i+1]['level']) <= 1.0:
+                        if vt_dt <= pob_dt <= next_dt: return True
+            return False
+
+        else: # Outbound
+            df_outb = raw_win_df[raw_win_df['_actual_date'] == pob_date].copy()
+            
+            # Quét cột thông minh, nhận diện cả chữ viết tắt (UB-P, UB-S)
+            b_cols = [c for c in df_outb.columns if "begin" in str(c).lower() and "ub" in str(c).lower()]
+            e_cols = [c for c in df_outb.columns if "end" in str(c).lower() and "ub" in str(c).lower()]
+            
+            if b_cols and e_cols:
+                b_col = b_cols[0]  # Thường Begin UB-Port nằm trước
+                e_col = e_cols[-1] # Thường End UB-Stb nằm sau cùng
+            else:
+                return False
+
+            for idx, row in df_outb.iterrows():
+                b_val, e_val = row.get(b_col), row.get(e_col)
+                if pd.notna(b_val) and pd.notna(e_val) and str(b_val).strip() != "" and str(e_val).strip() != "":
+                    try:
+                        b_time = b_val if isinstance(b_val, datetime.time) else datetime.datetime.strptime(str(b_val).strip()[:5], "%H:%M").time()
+                        e_time = e_val if isinstance(e_val, datetime.time) else datetime.datetime.strptime(str(e_val).strip()[:5], "%H:%M").time()
+                        b_dt = datetime.datetime.combine(pob_date, b_time)
+                        e_dt = datetime.datetime.combine(pob_date, e_time)
+                        
+                        if e_dt < b_dt: e_dt += datetime.timedelta(days=1) # Chống lỗi qua ngày mới
+                        
+                        # ĐK: Nằm lọt khe Begin UB Port và End UB Starboard
+                        if b_dt <= pob_dt <= e_dt: return True
+                    except: pass
+            return False
+    except: return False
+
 def calculate_opt1_safety(route_sel, pob_date, pob_time, draft, config, tide_db):
     waypoints = ROUTE_MAP.get(route_sel, [])
     pob_dt = datetime.datetime.combine(pob_date, pob_time)
-    results = []
-    is_safe = True
-    min_max_draft = 99.9
-    bottleneck = ""
-    
+    results, is_safe, min_max_draft, bottleneck = [], True, 99.9, ""
     for pt, transit_mins in waypoints:
         eta = pob_dt + datetime.timedelta(minutes=transit_mins)
         tide = get_tide_at_eta(tide_db, pt, eta)
         depth = float(config.get(pt.lower(), 0))
         pt_display = f"{pt} (-{depth}m)"
-        
         if tide is None or pd.isna(tide):
             results.append({"Điểm cạn": pt_display, "ETA": eta.strftime("%H:%M"), "Thủy triều": "N/A", "UKC": "N/A", "Max Draft": "N/A", "Kết quả": "⚠️ Lỗi"})
             is_safe = False; continue
-            
         ukc_pct = config["ukc_day"] if 6 <= eta.hour <= 17 else config["ukc_night"]
         max_d = (tide + depth) / (1 + ukc_pct / 100.0)
-        
-        if max_d < min_max_draft: min_max_draft = max_d; bottleneck = pt
+        if max_d < min_max_draft: min_max_draft, bottleneck = max_d, pt
         status = "✅ PASS" if draft <= max_d else "❌ FAIL"
         if draft > max_d: is_safe = False
-            
         results.append({"Điểm cạn": pt_display, "ETA": eta.strftime("%H:%M %d/%m"), "Thủy triều": f"{tide:.1f} m", "UKC": f"{ukc_pct}%", "Max Draft": f"{max_d:.1f} m", "Kết quả": status})
     return results, is_safe, min_max_draft, bottleneck
 
-# --- THUẬT TOÁN OPTION 2 ---
-def calculate_opt2_safe_times(route_sel, pob_date, draft, config, tide_db):
+def calculate_opt2_safe_times(route_sel, pob_date, draft, config, tide_db, direction):
     waypoints = ROUTE_MAP.get(route_sel, [])
     safe_times_detail = []
+    raw_win_df = load_raw_window()
+    
+    today, now = datetime.date.today(), datetime.datetime.now()
+    start_h, start_m = (now.hour, 0 if now.minute < 30 else 30) if pob_date == today else (0, 0)
     
     for h in range(24):
         for m in [0, 30]:
-            test_time = datetime.time(h, m)
-            test_dt = datetime.datetime.combine(pob_date, test_time)
-            is_safe = True
-            min_max_draft = 99.9
-            point_drafts = {}
+            if pob_date == today and (h < start_h or (h == start_h and m < start_m)): continue
+            test_time, test_dt = datetime.time(h, m), datetime.datetime.combine(pob_date, datetime.time(h, m))
+            is_safe, min_max_draft, point_drafts = True, 99.9, {}
             for pt, transit_mins in waypoints:
                 eta = test_dt + datetime.timedelta(minutes=transit_mins)
                 tide = get_tide_at_eta(tide_db, pt, eta)
@@ -125,34 +191,26 @@ def calculate_opt2_safe_times(route_sel, pob_date, draft, config, tide_db):
                 if max_d < min_max_draft: min_max_draft = max_d
                 if draft > max_d: is_safe = False; break
             if is_safe: 
-                safe_times_detail.append({"time": test_time, "point_drafts": point_drafts, "min_max_draft": min_max_draft})
+                c_safe = check_current_condition(test_dt, direction, raw_win_df)
+                safe_times_detail.append({"time": test_time, "point_drafts": point_drafts, "min_max_draft": min_max_draft, "current_safe": c_safe})
     return safe_times_detail
 
-# --- HÀM MỚI TÍCH HỢP CHO OPTION 2: LẤY 3 MAX VÀ 3 MIN DRAFT TRONG NGÀY ---
 def get_day_draft_extrema(route_sel, pob_date, config, tide_db):
     waypoints = ROUTE_MAP.get(route_sel, [])
     all_drafts = set()
-
     for h in range(24):
         for m in [0, 30]:
             test_dt = datetime.datetime.combine(pob_date, datetime.time(h, m))
-            min_max_draft = 99.9
-            is_valid = True
+            min_max_draft, is_valid = 99.9, True
             for pt, transit_mins in waypoints:
                 eta = test_dt + datetime.timedelta(minutes=transit_mins)
                 tide = get_tide_at_eta(tide_db, pt, eta)
-                if tide is None or pd.isna(tide):
-                    is_valid = False; break
+                if tide is None or pd.isna(tide): is_valid = False; break
                 depth = float(config.get(pt.lower(), 0))
                 u = config["ukc_day"] if 6 <= eta.hour <= 17 else config["ukc_night"]
                 max_d = (tide + depth) / (1 + u / 100.0)
                 if max_d < min_max_draft: min_max_draft = max_d
-            if is_valid and min_max_draft != 99.9:
-                all_drafts.add(round(min_max_draft, 1))
-
+            if is_valid and min_max_draft != 99.9: all_drafts.add(round(min_max_draft, 1))
     sorted_drafts = sorted(list(all_drafts))
     if not sorted_drafts: return [], []
-
-    min_3 = sorted_drafts[:3]
-    max_3 = sorted(sorted_drafts[-3:], reverse=True) # Lấy 3 mớn lớn nhất, xếp giảm dần
-    return max_3, min_3
+    return sorted(sorted_drafts[-3:], reverse=True), sorted_drafts[:3]
