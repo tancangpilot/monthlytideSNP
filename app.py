@@ -16,7 +16,22 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed" 
 )
-
+st.markdown("""
+    <style>
+    /* Ép cỡ chữ cho bảng DataFrame */
+    [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th {
+        font-size: 20px !important;
+    }
+    /* Ép cỡ chữ cho các ô nhập liệu (POB Date, Time...) */
+    .stDateInput div[data-baseweb="input"], .stTimeInput div[data-baseweb="input"], .stNumberInput div[data-baseweb="input"] {
+        font-size: 20px !important;
+    }
+    /* Tăng cỡ chữ cho nhãn (Label) */
+    .stMarkdown p, label {
+        font-size: 18px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 # --- 3. ĐOẠN MÃ NGẦM JS: TỰ ĐÓNG SIDEBAR SAU 30 GIÂY ---
 components.html(
     """
@@ -89,6 +104,22 @@ with st.sidebar:
     st.divider()
 
 if current_page == "🌊 Bảng thông tin":
+    
+    # --- GHIM GLOBAL HEADER (UKC & SHALLOW POINT) LÊN ĐẦU MÀN HÌNH ---
+    last_update = config.get("last_update", "16:16:42 ngày 02/04/2026")
+    st.markdown(f"""
+    <div style="background-color: #e6f7ff; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 15px; color: #222; border-left: 5px solid #1E90FF; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <b>UKC daytime (06h-17h) ☀️:</b> <span style="color:#e60000; font-weight:bold;">{config.get('ukc_day', 7)}%</span> - 
+        <b>night time (18h-05h) 🌙:</b> <span style="color:#e60000; font-weight:bold;">{config.get('ukc_night', 10)}%</span> &nbsp;|&nbsp; 
+        <b>Shallow Point</b> HL6: <span style="color:#1E90FF; font-weight:bold;">-{config.get('hl6', 8.8)}m</span> / 
+        HL21&HL27: <span style="color:#1E90FF; font-weight:bold;">-{config.get('hl27', 8.5)}m</span> / 
+        Bờ Băng (BB): <span style="color:#1E90FF; font-weight:bold;">-{config.get('bb', 6.7)}m</span> / 
+        Hạ lưu TCHP: <span style="color:#1E90FF; font-weight:bold;">-{config.get('tchp', 8.0)}m</span> / 
+        Vàm Láng: <span style="color:#1E90FF; font-weight:bold;">-{config.get('vl', 8.0)}m</span> 
+        <i style="color: #666; font-size: 13px;">(Update: {last_update})</i>
+    </div>
+    """, unsafe_allow_html=True)
+
     selected_tab = st.radio(
         "Chọn tính năng:", 
         ["CÁI MÉP", "CÁT LÁI", "Tide Calc Cat Lai", "Max Draft Table", "POB Table"], 
@@ -111,21 +142,21 @@ if current_page == "🌊 Bảng thông tin":
             m_sel = st.selectbox("Tháng", ["Mặc định (Hiện tại -> Hết tháng)"] + [f"Tháng {i}" for i in range(1, 13)])
             show_ub = True; show_b = True
         elif selected_tab == "Tide Calc Cat Lai":
+            # CHỈ ĐỂ LẠI INBOUND/OUTBOUND TRONG SIDEBAR
             st.write("**🧭 Định tuyến (Routing)**")
             direction = st.radio("Hướng đi", ["⬆️ Outbound (Đi ra)", "⬇️ Inbound (Đi vào)"], label_visibility="collapsed")
-            routes = ["1. Cát Lái ➔ Lòng Tàu ➔ P0 VT", "2. Cát Lái ➔ Soài Rạp ➔ P0 SR (Hỗn hợp)", "3. TC Hiệp Phước ➔ Soài Rạp ➔ P0 SR"] if "Outbound" in direction else ["1. P0 VT ➔ Lòng Tàu ➔ Cát Lái", "2. P0 SR ➔ Soài Rạp ➔ TC Hiệp Phước"]
-            route_sel = st.radio("Chọn tuyến", routes)
         else:
             show_ub = True; show_b = True; grp = None; m_sel = None
 
     if selected_tab == "CÁI MÉP":
-        note_cm = ":red[*Window is calculated for vessels LOA ≤ 300m; Draft ≤ 12.5m; GRT ≤ 80.000. The vessels: Draft > 12.5m; LOA > 300m; GRT > 80.000 is advised by Duty Pilot*] *(**UB** - Unberthing / **B** - Berthing)*"
+        note_cm = ":red[*Window is calculated for vessels LOA ≤ 300m; Draft ≤ 12.5m; GRT ≤ 80.000. The vessels: Draft > 12.5m; LOA > 300m; GRT > 80.000 is advised by Duty Pilot*]"
         render_window_tab(DATA_FILE, "WindowCM", show_past_global, note_cm, show_ub, show_b)
     elif selected_tab == "CÁT LÁI":
         note_cl = "*The vessels: Draft > 10.0m or Departure outside Window must be advised by the duty pilot.*"
         render_window_tab(DATA_FILE, "WindowCL", show_past_global, note_cl, show_ub, show_b)
     elif selected_tab == "Tide Calc Cat Lai":  
-        render_tide_calc_tab(route_sel)
+        # TRUYỀN BIẾN DIRECTION SANG TAB TIDE CALC
+        render_tide_calc_tab(direction)
     elif selected_tab == "Max Draft Table":
         render_max_draft_tab(config, grp, m_sel)
     elif selected_tab == "POB Table":
@@ -133,18 +164,14 @@ if current_page == "🌊 Bảng thông tin":
 
 elif current_page == "⚙️ Quản lý hệ thống":
     if config.get("logged_in", False):
-        # Hiện nút đăng xuất ở Sidebar nếu đã đăng nhập thành công
         with st.sidebar:
             st.success("Đã đăng nhập!")
             if st.button("Đăng xuất"):
                 config["logged_in"] = False
                 save_config(config)
                 st.rerun()
-        
-        # Gọi hàm vẽ giao diện Admin
         render_admin_page(config)
     else:
-        # CHUYỂN FORM ĐĂNG NHẬP RA GIỮA MÀN HÌNH CHÍNH
         st.markdown("<br><br>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 1, 1])
         with col2:
@@ -163,7 +190,6 @@ elif current_page == "⚙️ Quản lý hệ thống":
                     else:
                         st.error("Sai tài khoản hoặc mật khẩu!")
 
-# --- PHIÊN BẢN & ĐỒNG HỒ ---
 with st.sidebar:
     st.divider()
-    st.markdown(f'<div style="display: flex; justify-content: space-between; font-size: 0.85em;"><span>V 1.20</span><span id="sidebar-countdown" style="color: #ff4b4b;"></span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="display: flex; justify-content: space-between; font-size: 0.85em;"><span>V 1.21</span><span id="sidebar-countdown" style="color: #ff4b4b;"></span></div>', unsafe_allow_html=True)
