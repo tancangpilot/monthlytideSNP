@@ -8,6 +8,7 @@ def get_rounded_time():
     minutes = (now.minute // 30 + (1 if now.minute % 30 >= 15 else 0)) * 30
     return (now.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(minutes=minutes)).time()
 
+# Hàm quy đổi số phút sang định dạng +1h, +1h30...
 def format_transit_time(mins):
     h, m = divmod(mins, 60)
     if h > 0 and m > 0: return f"+{h}h{m}"
@@ -17,9 +18,11 @@ def format_transit_time(mins):
 def render_tide_calc_tab(direction):
     config = st.session_state.config
     
+    # 1. Rải trực tiếp các tuyến ra (Đã xóa tiêu đề "📍 Chọn tuyến...")
     routes = ["1. Cát Lái ➔ Lòng Tàu ➔ P0 VT", "2. Cát Lái ➔ Soài Rạp ➔ P0 SR (Hỗn hợp)", "3. TC Hiệp Phước ➔ Soài Rạp ➔ P0 SR"] if "Outbound" in direction else ["1. P0 VT ➔ Lòng Tàu ➔ Cát Lái", "2. P0 SR ➔ Soài Rạp ➔ TC Hiệp Phước"]
     route_sel = st.radio("Route", routes, label_visibility="collapsed")
     
+    # 2. Thanh thông báo Chi tiết thời gian tới điểm cạn (Sẽ tự động cập nhật khi đổi tuyến)
     wpts = ROUTE_MAP.get(route_sel, [])
     info_str = " &nbsp;|&nbsp; ".join([f"<span style='color:#1E90FF; font-weight:bold;'>{pt}</span> = POB {format_transit_time(mins)}" for pt, mins in wpts])
     st.markdown(f"<div style='margin-top: 5px; margin-bottom: 5px; font-size: 14.5px; color: #444; background-color: #f0f2f6; padding: 8px 12px; border-radius: 5px; border-left: 4px solid #1E90FF;'><b>⏳ Chi tiết:</b> {info_str}</div>", unsafe_allow_html=True)
@@ -97,7 +100,7 @@ def render_tide_calc_tab(direction):
                         
                         df_res = pd.DataFrame(table_data)
                         
-                        # TÔ MÀU NỀN XANH + CHỮ XANH ĐẬM VÀO THẲNG BẢNG
+                        # 3. ÉP MÀU XANH LÁ + IN ĐẬM VÀO DÒNG AN TOÀN
                         def highlight_row(row):
                             if row.get('_current_safe', False):
                                 return ['background-color: #d4edda; color: #155724; font-weight: bold;'] * len(row)
