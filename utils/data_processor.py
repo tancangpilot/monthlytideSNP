@@ -1,15 +1,16 @@
 import pandas as pd
 import datetime
 import os
+import streamlit as st
 
-# --- HÀM XỬ LÝ WINDOW ---
 def process_and_style_df(df, show_past_dates=False):
     df = df.dropna(how='all').copy()
-    if 'Vung Tau' in df.columns:
-        df = df.dropna(subset=['Vung Tau']).copy()
-        
-    df.columns = [str(c).replace('Slack Time', 'Slack').replace('Starboard', 'Stb').replace('UB', '𝗨𝗕') for c in df.columns]
     
+    df.columns = [str(c).strip() for c in df.columns]
+    
+    if 'VungTau' in df.columns:
+        df = df.dropna(subset=['VungTau']).copy()
+        
     if 'Date' in df.columns:
         raw_dates = pd.to_datetime(df['Date'], errors='coerce')
         is_valid_date = raw_dates.apply(lambda x: pd.notna(x) and x.year > 2000)
@@ -33,6 +34,16 @@ def process_and_style_df(df, show_past_dates=False):
             else:
                 display_dates.append("")
         df['Date'] = display_dates
+        
+        if not st.session_state.get('show_full_cols', True):
+            rename_map = {
+                "Begin UB-Port": "B.UB-P", "End UB-Port": "E.UB-P",
+                "Begin UB-Starboard": "B.UB-Stb", "End UB-Starboard": "E.UB-Stb",
+                "Begin B-Port": "B.B-P", "End B-Port": "E.B-P",
+                "Begin B-Starboard": "B.B-Stb", "End B-Starboard": "E.B-Stb"
+            }
+            df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
+
         cols = ['Date'] + [c for c in df.columns if c not in ['Date', '_dow', '_actual_date']] + ['_dow', '_actual_date']
         df = df[cols]
 
@@ -68,16 +79,18 @@ def process_and_style_df(df, show_past_dates=False):
             css = base_css 
             val_str = str(val)
             if 'Dir' in str(col_name):
-                if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 20px;"
-                elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 20px;"
-            elif 'Port' in str(col_name):
-                css += "color: #ff4d4d; font-weight: normal;"
-            elif 'Stb' in str(col_name):
-                css += "color: #00cc00; font-weight: normal;"
+                # ĐÃ HẠ FONT-SIZE XUỐNG 18PX ĐỂ CỘT KHÔNG BỊ GIÃN
+                if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 18px;"
+                elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 18px;"
+            elif 'Port' in str(col_name) or '-P' in str(col_name):
+                css += "color: #ff4d4d; font-weight: bold;" 
+            elif 'Stb' in str(col_name) or 'Starboard' in str(col_name):
+                css += "color: #00cc00; font-weight: bold;" 
+            elif 'UB' in str(col_name) or ' B' in str(col_name):
+                css += "font-weight: bold;" 
             styles.append(css)
         return styles
 
-    # ÉP PANDAS ẨN 2 CỘT NÀY NGAY TRƯỚC KHI TRẢ VỀ FRONTEND
     styler = df.style.apply(style_row, axis=1)
     if hasattr(styler, "hide"):
         return styler.hide(subset=["_dow", "_actual_date"], axis="columns")
@@ -85,7 +98,6 @@ def process_and_style_df(df, show_past_dates=False):
         return styler.hide_columns(["_dow", "_actual_date"])
 
 
-# --- HÀM XỬ LÝ MAX DRAFT ĐÃ CHỈNH LẠI 1 SỐ THẬP PHÂN ---
 def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xlsx"):
     if not os.path.exists(file_path): return None, f"Thiếu file {file_path}"
     
@@ -152,15 +164,12 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
                         
                     u = ukc_day if (6 <= h <= 17) else ukc_night
                     if pd.notna(tide_val): 
-                        # Đã ép chuẩn 1 chữ số thập phân (phần chục)
                         res_row[h_col] = f"{(tide_val + depth) / (1 + u):.1f}"
                     else: res_row[h_col] = ""
                         
                 final_list.append(res_row)
                 
     except Exception as e: return None, f"Lỗi hệ thống: {e}"
-
-    # ... (Phần trên giữ nguyên)
 
     if not final_list: return None, "Không tìm thấy dữ liệu."
     
@@ -176,11 +185,9 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
             elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
             else: bg = "background-color: rgba(50, 150, 250, 0.15);"
         
-        # Tôi vẫn để font-size ở đây để hỗ trợ các trình duyệt cũ
         css = bg + "font-size: 20px; "
         return [css] * len(row)
 
-    # --- SỬA TẠI ĐÂY: ÉP ẨN CỘT TRƯỚC KHI TRẢ VỀ ---
     styler = df_res.style.apply(style_sum, axis=1)
     if hasattr(styler, "hide"):
         return styler.hide(subset=["_dow", "_sort"], axis="columns"), None

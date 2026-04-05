@@ -14,7 +14,7 @@ ROUTE_MAP = {
     "3. TC Hiệp Phước ➔ Soài Rạp ➔ P0 SR": [("TCHP", 30), ("VL", 110)]
 }
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def load_all_tide_data(file_path="data_tide.xlsx"):
     tide_db = {}
     month_map = {"january":1, "february":2, "march":3, "april":4, "may":5, "june":6,
@@ -25,7 +25,6 @@ def load_all_tide_data(file_path="data_tide.xlsx"):
 
     try:
         xl = pd.ExcelFile(file_path)
-        # SỬA GIỜ Ở ĐÂY
         today = datetime.datetime.now(VN_TZ).date()
         year = today.year
         for sheet in xl.sheet_names:
@@ -51,10 +50,11 @@ def load_all_tide_data(file_path="data_tide.xlsx"):
         return tide_db
     except Exception as e: return None
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def load_raw_window(file_path="data_window.xlsx"):
     try:
         df = pd.read_excel(file_path, sheet_name="WindowCL")
+        df.columns = [str(c).strip() for c in df.columns] # Chuẩn hóa tên cột
         raw_dates = pd.to_datetime(df['Date'], errors='coerce')
         is_valid = raw_dates.apply(lambda x: pd.notna(x) and x.year > 2000)
         df['_actual_date'] = raw_dates.where(is_valid).bfill(limit=1).ffill().dt.date
@@ -64,6 +64,7 @@ def load_raw_window(file_path="data_window.xlsx"):
 def get_window_cl_for_date(target_date, file_path="data_window.xlsx"):
     try:
         df = pd.read_excel(file_path, sheet_name="WindowCL")
+        df.columns = [str(c).strip() for c in df.columns]
         raw_dates = pd.to_datetime(df['Date'], errors='coerce')
         is_valid = raw_dates.apply(lambda x: pd.notna(x) and x.year > 2000)
         _actual_date = raw_dates.where(is_valid).bfill(limit=1).ffill()
@@ -87,6 +88,7 @@ def get_tide_at_eta(tide_db, point, eta_dt):
     if pd.isna(v1) or pd.isna(v2): return v1 
     return v1 + (v2 - v1) * (m / 60.0)
 
+# --- THUẬT TOÁN ĐỌC TÊN CỘT CHUẨN ---
 def check_current_condition(pob_dt, direction, raw_win_df):
     if raw_win_df is None or raw_win_df.empty: return False
     try:
@@ -95,9 +97,8 @@ def check_current_condition(pob_dt, direction, raw_win_df):
             df_inb = raw_win_df[raw_win_df['_actual_date'].isin([pob_date, pob_date + datetime.timedelta(days=1)])].copy()
             vt_data = []
             
-            vt_col = next((c for c in raw_win_df.columns if "vung" in str(c).lower()), None)
-            lvl_col = next((c for c in raw_win_df.columns if "level" in str(c).lower()), None)
-            if not vt_col or not lvl_col: return False
+            vt_col, lvl_col = "VungTau", "Level"
+            if vt_col not in df_inb.columns or lvl_col not in df_inb.columns: return False
             
             for idx, row in df_inb.iterrows():
                 vt_time, lvl = row.get(vt_col), row.get(lvl_col)
@@ -106,36 +107,28 @@ def check_current_condition(pob_dt, direction, raw_win_df):
                         t = vt_time if isinstance(vt_time, datetime.time) else datetime.datetime.strptime(str(vt_time).strip()[:5], "%H:%M").time()
                         vt_data.append({'dt': datetime.datetime.combine(row['_actual_date'], t), 'level': float(lvl)})
                     except: pass
-            
             vt_data.sort(key=lambda x: x['dt'])
             for i in range(len(vt_data)):
                 vt_dt = vt_data[i]['dt']
                 if vt_dt - datetime.timedelta(hours=2) <= pob_dt <= vt_dt + datetime.timedelta(minutes=30): return True
                 if i < len(vt_data) - 1:
-                    next_dt = vt_data[i+1]['dt']
                     if abs(vt_data[i]['level'] - vt_data[i+1]['level']) <= 1.0:
-                        if vt_dt <= pob_dt <= next_dt: return True
+                        if vt_dt <= pob_dt <= vt_data[i+1]['dt']: return True
             return False
-
+            
         else: # Outbound
             df_outb = raw_win_df[raw_win_df['_actual_date'] == pob_date].copy()
-            b_cols = [c for c in df_outb.columns if "begin" in str(c).lower() and "ub" in str(c).lower()]
-            e_cols = [c for c in df_outb.columns if "end" in str(c).lower() and "ub" in str(c).lower()]
             
-            if b_cols and e_cols:
-                b_col = b_cols[0]  
-                e_col = e_cols[-1] 
-            else:
-                return False
-
+            b_col, e_col = "Begin UB-Port", "End UB-Starboard"
+            if b_col not in df_outb.columns or e_col not in df_outb.columns: return False
+            
             for idx, row in df_outb.iterrows():
                 b_val, e_val = row.get(b_col), row.get(e_col)
-                if pd.notna(b_val) and pd.notna(e_val) and str(b_val).strip() != "" and str(e_val).strip() != "":
+                if pd.notna(b_val) and pd.notna(e_val):
                     try:
-                        b_time = b_val if isinstance(b_val, datetime.time) else datetime.datetime.strptime(str(b_val).strip()[:5], "%H:%M").time()
-                        e_time = e_val if isinstance(e_val, datetime.time) else datetime.datetime.strptime(str(e_val).strip()[:5], "%H:%M").time()
-                        b_dt = datetime.datetime.combine(pob_date, b_time)
-                        e_dt = datetime.datetime.combine(pob_date, e_time)
+                        b_t = b_val if isinstance(b_val, datetime.time) else datetime.datetime.strptime(str(b_val).strip()[:5], "%H:%M").time()
+                        e_t = e_val if isinstance(e_val, datetime.time) else datetime.datetime.strptime(str(e_val).strip()[:5], "%H:%M").time()
+                        b_dt, e_dt = datetime.datetime.combine(pob_date, b_t), datetime.datetime.combine(pob_date, e_t)
                         if e_dt < b_dt: e_dt += datetime.timedelta(days=1)
                         if b_dt <= pob_dt <= e_dt: return True
                     except: pass
@@ -164,18 +157,14 @@ def calculate_opt1_safety(route_sel, pob_date, pob_time, draft, config, tide_db)
 
 def calculate_opt2_safe_times(route_sel, pob_date, draft, config, tide_db, direction):
     waypoints = ROUTE_MAP.get(route_sel, [])
-    safe_times_detail = []
-    raw_win_df = load_raw_window()
-    
-    # SỬA GIỜ Ở ĐÂY: KHÓA CHẶT MÚI GIỜ VIỆT NAM
+    safe_times_detail, raw_win_df = [], load_raw_window()
     now = datetime.datetime.now(VN_TZ)
     today = now.date()
     start_h, start_m = (now.hour, 0 if now.minute < 30 else 30) if pob_date == today else (0, 0)
-    
     for h in range(24):
         for m in [0, 30]:
             if pob_date == today and (h < start_h or (h == start_h and m < start_m)): continue
-            test_time, test_dt = datetime.time(h, m), datetime.datetime.combine(pob_date, datetime.time(h, m))
+            test_dt = datetime.datetime.combine(pob_date, datetime.time(h, m))
             is_safe, min_max_draft, point_drafts = True, 99.9, {}
             for pt, transit_mins in waypoints:
                 eta = test_dt + datetime.timedelta(minutes=transit_mins)
@@ -189,7 +178,7 @@ def calculate_opt2_safe_times(route_sel, pob_date, draft, config, tide_db, direc
                 if draft > max_d: is_safe = False; break
             if is_safe: 
                 c_safe = check_current_condition(test_dt, direction, raw_win_df)
-                safe_times_detail.append({"time": test_time, "point_drafts": point_drafts, "min_max_draft": min_max_draft, "current_safe": c_safe})
+                safe_times_detail.append({"time": test_dt.time(), "point_drafts": point_drafts, "min_max_draft": min_max_draft, "current_safe": c_safe})
     return safe_times_detail
 
 def get_day_draft_extrema(route_sel, pob_date, config, tide_db):
