@@ -32,14 +32,15 @@ st.markdown("""
     }
     </style>
     """, unsafe_allow_html=True)
-# --- 3. ĐOẠN MÃ NGẦM JS: TỰ ĐÓNG SIDEBAR SAU 30 GIÂY ---
+
+# --- 3. ĐOẠN MÃ NGẦM JS: TỰ ĐÓNG SIDEBAR SAU 60 GIÂY ---
 components.html(
     """
     <script>
     const doc = window.parent.document;
     let isOpen = false;
     let autoCloseTimer = null;
-    let timeLeft = 30;
+    let timeLeft = 60; // Đã tăng lên 60s
 
     setInterval(() => {
         const sidebar = doc.querySelector('[data-testid="stSidebar"]');
@@ -50,7 +51,7 @@ components.html(
 
         if (isExpanded && !isOpen) {
             isOpen = true;
-            timeLeft = 30;
+            timeLeft = 60; // Đã tăng lên 60s
             if (countdownDisplay) countdownDisplay.innerText = `Auto hide sidebar: ${timeLeft}s`;
             
             autoCloseTimer = setInterval(() => {
@@ -105,7 +106,6 @@ with st.sidebar:
 
 if current_page == "🌊 Bảng thông tin":
     
-    # --- GHIM GLOBAL HEADER (UKC & SHALLOW POINT) LÊN ĐẦU MÀN HÌNH ---
     last_update = config.get("last_update", "16:16:42 ngày 02/04/2026")
     st.markdown(f"""
     <div style="background-color: #e6f7ff; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 15px; color: #222; border-left: 5px solid #1E90FF; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -121,9 +121,10 @@ if current_page == "🌊 Bảng thông tin":
     </div>
     """, unsafe_allow_html=True)
 
+    # ĐỔI TÊN TAB THEO YÊU CẦU
     selected_tab = st.radio(
         "Chọn tính năng:", 
-        ["CÁI MÉP", "CÁT LÁI", "Tide Calc Cat Lai", "Max Draft Table", "POB Table"], 
+        ["Tide Calc CÁT LÁI", "CÁT LÁI", "CÁI MÉP", "Max Draft Table", "POB Table"], 
         horizontal=True, 
         label_visibility="collapsed"
     )
@@ -131,6 +132,19 @@ if current_page == "🌊 Bảng thông tin":
     with st.sidebar:
         st.markdown("### ⚙️ Tuỳ chọn chung")
         show_past_global = st.toggle("🕰️ Hiển thị ngày đã qua", value=False)
+        
+        st.session_state.show_full_cols = st.toggle("Hiển thị đủ tên cột", value=True)
+        # GHI CHÚ ĐÃ ĐƯỢC IN ĐẬM VÀ TÔ MÀU ĐÚNG CHUẨN
+        st.markdown("""
+        <div style='font-size: 13.5px; color: #555; background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: -10px; margin-bottom: 15px; border-left: 3px solid #1E90FF;'>
+            <i><b>💡 Ghi chú thuật ngữ:</b><br>
+            • <b>B/E:</b> Begin / End<br>
+            • <b>UB/B:</b> <b>UnBerthing / Berthing</b><br>
+            • <b style="color:#ff4d4d;">P: Port</b><br>
+            • <b style="color:#00cc00;">Stb: Starboard</b></i>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.divider()
         st.markdown(f"### 🎯 Tuỳ chọn: {selected_tab}")
         
@@ -142,10 +156,13 @@ if current_page == "🌊 Bảng thông tin":
             grp = st.selectbox("Sông", ["LÒNG TÀU", "SOÀI RẠP"])
             m_sel = st.selectbox("Tháng", ["Mặc định (Hiện tại -> Hết tháng)"] + [f"Tháng {i}" for i in range(1, 13)])
             show_ub = True; show_b = True
-        elif selected_tab == "Tide Calc Cat Lai":
-            # CHỈ ĐỂ LẠI INBOUND/OUTBOUND TRONG SIDEBAR
+        elif selected_tab == "Tide Calc CÁT LÁI":
             st.write("**🧭 Định tuyến (Routing)**")
-            direction = st.radio("Hướng đi", ["⬆️ Outbound (Đi ra)", "⬇️ Inbound (Đi vào)"], label_visibility="collapsed")
+            
+            def reset_routing():
+                st.session_state.tide_calc_run = False
+                
+            direction = st.radio("Hướng đi", ["⬆️ Outbound (Đi ra)", "⬇️ Inbound (Đi vào)"], label_visibility="collapsed", on_change=reset_routing)
         else:
             show_ub = True; show_b = True; grp = None; m_sel = None
 
@@ -155,8 +172,7 @@ if current_page == "🌊 Bảng thông tin":
     elif selected_tab == "CÁT LÁI":
         note_cl = "*The vessels: Draft > 10.0m or Departure outside Window must be advised by the duty pilot.*"
         render_window_tab(DATA_FILE, "WindowCL", show_past_global, note_cl, show_ub, show_b)
-    elif selected_tab == "Tide Calc Cat Lai":  
-        # TRUYỀN BIẾN DIRECTION SANG TAB TIDE CALC
+    elif selected_tab == "Tide Calc CÁT LÁI":  
         render_tide_calc_tab(direction)
     elif selected_tab == "Max Draft Table":
         render_max_draft_tab(config, grp, m_sel)
