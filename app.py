@@ -12,7 +12,7 @@ DATA_FILE = "data_window.xlsx"
 
 # --- 2. KHỞI TẠO GIAO DIỆN ---
 st.set_page_config(
-    page_title="Tide Calc for Operator",
+    page_title="Tide Schedule", 
     page_icon="logoHTTC.png",
     layout="wide",
     initial_sidebar_state="collapsed" 
@@ -23,6 +23,15 @@ st.markdown("""
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th {
         font-size: 20px !important;
     }
+    
+    /* ---------------------------------------------------
+       1. ĐỔ MÀU VÀNG CHO TIÊU ĐỀ BẢNG (HEADERS)
+       --------------------------------------------------- */
+    [data-testid="stDataFrame"] th {
+        background-color: #ffe699 !important; /* Màu vàng nhạt */
+        color: #111 !important;
+    }
+
     /* Ép cỡ chữ cho các ô nhập liệu (POB Date, Time...) */
     .stDateInput div[data-baseweb="input"], .stTimeInput div[data-baseweb="input"], .stNumberInput div[data-baseweb="input"] {
         font-size: 20px !important;
@@ -30,6 +39,23 @@ st.markdown("""
     /* Tăng cỡ chữ cho nhãn (Label) */
     .stMarkdown p, label {
         font-size: 18px !important;
+    }
+
+    /* ---------------------------------------------------
+       2. TẠO KHUNG VIỀN CHO TUYẾN ĐƯỜNG ĐƯỢC CHỌN
+       --------------------------------------------------- */
+    /* Căn lề sẵn để nút không bị giật khi chọn */
+    [data-testid="stMainBlockContainer"] [data-testid="stRadio"] div[role="radiogroup"] label[data-baseweb="radio"] {
+        padding: 8px 12px !important;
+        border: 2px solid transparent !important;
+        border-radius: 8px !important;
+        margin-bottom: 2px;
+        transition: all 0.2s ease;
+    }
+    /* Đóng khung xanh dương cho lựa chọn đang được Check */
+    [data-testid="stMainBlockContainer"] [data-testid="stRadio"] div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) {
+        border: 2px solid #1E90FF !important;
+        background-color: #f0f8ff !important;
     }
     </style>
     """, unsafe_allow_html=True)
