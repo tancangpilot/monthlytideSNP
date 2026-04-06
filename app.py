@@ -12,7 +12,8 @@ DATA_FILE = "data_window.xlsx"
 
 # --- 2. KHỞI TẠO GIAO DIỆN ---
 st.set_page_config(
-    page_title="Hệ Thống Thủy Triều Trực Điều Hành", 
+    page_title="Hệ Thống Thủy Triều Trực Điều Hành",
+    page_icon="logoHTTC.png",
     layout="wide",
     initial_sidebar_state="collapsed" 
 )
