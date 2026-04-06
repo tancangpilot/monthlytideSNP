@@ -39,7 +39,7 @@ def render_tide_calc_tab(direction):
         with c1: 
             pob_date = st.date_input("POB Date", datetime.datetime.now(VN_TZ).date(), on_change=reset_calc)
         with c2: 
-            draft = st.number_input("Draft (m)", min_value=0.0, value=9.5, step=0.1, on_change=reset_calc)
+            draft = st.number_input("Draft (m)", min_value=0.0, value=8.5, step=0.1, on_change=reset_calc)
         with c3:
             is_single = st.checkbox("🎯 Check 1 giờ cụ thể", value=False, on_change=reset_calc)
 
