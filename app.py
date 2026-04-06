@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import os
+from datetime import datetime
 from utils.config_manager import load_config, save_config
 from tabs.tab_window import render_window_tab
 from tabs.tab_max_draft import render_max_draft_tab
@@ -8,8 +9,17 @@ from tabs.tab_admin import render_admin_page
 from tabs.tab_tide_calc import render_tide_calc_tab
 from tabs.tab_channel_info import render_channel_info_tab
 
-# --- 1. ĐỊNH NGHĨA FILE ---
+# --- 1. ĐỊNH NGHĨA FILE & MAPPING (Dành cho Link) ---
 DATA_FILE = "data_window.xlsx"
+
+TAB_MAP = {
+    "Tide Calc CÁT LÁI": "tide",
+    "CÁT LÁI": "cl",
+    "CÁI MÉP": "cm",
+    "Max Draft Table": "draft",
+    "Channel Infor": "channel"
+}
+REVERSE_MAP = {v: k for k, v in TAB_MAP.items()}
 
 # --- 2. KHỞI TẠO GIAO DIỆN ---
 st.set_page_config(
@@ -18,6 +28,16 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed" 
 )
+
+# --- PHẦN LOGIC ĐỌC LINK (PHẢI CHẠY TRƯỚC RADIO) ---
+if "active_tab_key" not in st.session_state:
+    query_slug = st.query_params.get("tab", "tide")
+    st.session_state.active_tab_key = REVERSE_MAP.get(query_slug, "Tide Calc CÁT LÁI")
+
+def update_url_params():
+    # Cập nhật URL mỗi khi ông bấm chọn Tab khác
+    st.query_params["tab"] = TAB_MAP[st.session_state.active_tab_key]
+
 st.markdown("""
     <style>
     /* Ép cỡ chữ cho bảng DataFrame */
@@ -149,10 +169,12 @@ if current_page == "🌊 Bảng thông tin":
     </div>
     """, unsafe_allow_html=True)
 
-    # ĐỔI TÊN TAB THEO YÊU CẦU
+    # ĐỔI TÊN TAB THEO YÊU CẦU - ĐÃ CHÈN KEY ĐỂ NHẬY TAB
     selected_tab = st.radio(
         "Chọn tính năng:", 
-        ["Tide Calc CÁT LÁI", "CÁT LÁI", "CÁI MÉP", "Max Draft Table", "Channel Infor"], 
+        options=list(TAB_MAP.keys()),
+        key="active_tab_key",
+        on_change=update_url_params,
         horizontal=True, 
         label_visibility="collapsed"
     )
@@ -182,7 +204,12 @@ if current_page == "🌊 Bảng thông tin":
             grp = None; m_sel = None
         elif selected_tab == "Max Draft Table":
             grp = st.selectbox("Sông", ["LÒNG TÀU", "SOÀI RẠP"])
-            m_sel = st.selectbox("Tháng", ["Mặc định (Hiện tại -> Hết tháng)"] + [f"Tháng {i}" for i in range(1, 13)])
+            m_choice = st.selectbox("Tháng", ["Mặc định (Hiện tại -> Hết tháng)"] + [f"Tháng {i}" for i in range(1, 13)])
+            # SỬA LỖI split() BẰNG CÁCH GỬI CHUỖI CHUẨN SANG TAB_MAX_DRAFT
+            if "Mặc định" in m_choice:
+                m_sel = f"Tháng {datetime.now().month}"
+            else:
+                m_sel = m_choice
             show_ub = True; show_b = True
         elif selected_tab == "Tide Calc CÁT LÁI":
             st.write("**🧭 Định tuyến (Routing)**")
@@ -210,6 +237,10 @@ if current_page == "🌊 Bảng thông tin":
         render_channel_info_tab()
 
 elif current_page == "⚙️ Quản lý hệ thống":
+    # GIẤU ADMIN KHỎI URL
+    if "tab" in st.query_params:
+        del st.query_params["tab"]
+
     if config.get("logged_in", False):
         with st.sidebar:
             st.success("Đã đăng nhập!")
@@ -236,6 +267,7 @@ elif current_page == "⚙️ Quản lý hệ thống":
                         st.rerun()
                     else:
                         st.error("Sai tài khoản hoặc mật khẩu!")
+
 with st.sidebar:
     # Gom tất cả: Đường kẻ trên -> Phiên bản/Countdown -> Tên tác giả -> Đường kẻ dưới vào 1 khối
     st.markdown(f'''
