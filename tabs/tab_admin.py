@@ -6,6 +6,10 @@ from datetime import datetime, timedelta
 from utils.config_manager import save_config
 
 def render_admin_page(config):
+    # --- DÒNG MỚI THÊM: XÓA DẤU VẾT TRÊN URL ---
+    if "tab" in st.query_params:
+        del st.query_params["tab"]
+    # ------------------------------------------
     st.markdown("<h2 style='text-align: center; color: #1E90FF;'>⚙️ QUẢN TRỊ HỆ THỐNG</h2>", unsafe_allow_html=True)
     
     # --- 1. ĐƯA UKC RA MẶT TIỀN (Không giấu trong Tab nữa) ---
