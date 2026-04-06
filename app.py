@@ -160,7 +160,7 @@ if current_page == "🌊 Bảng thông tin":
         st.markdown("### ⚙️ Tuỳ chọn chung")
         show_past_global = st.toggle("🕰️ Hiển thị ngày đã qua", value=False)
         
-        st.session_state.show_full_cols = st.toggle("Hiển thị đủ tên cột", value=True)
+        st.session_state.show_full_cols = st.toggle("Hiển thị đủ tên cột", value=False)
         # GHI CHÚ ĐÃ ĐƯỢC IN ĐẬM VÀ TÔ MÀU ĐÚNG CHUẨN
         st.markdown("""
         <div style='font-size: 13.5px; color: #555; background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: -10px; margin-bottom: 15px; border-left: 3px solid #1E90FF;'>
