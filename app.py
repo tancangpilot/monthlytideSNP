@@ -40,6 +40,14 @@ def update_url_params():
 
 st.markdown("""
     <style>
+    /* Ép khoảng cách phía trên cùng của trang sát lại */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    
     /* Ép cỡ chữ cho bảng DataFrame */
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th {
         font-size: 20px !important;
