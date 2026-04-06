@@ -5,9 +5,7 @@ import streamlit as st
 
 def process_and_style_df(df, show_past_dates=False):
     df = df.dropna(how='all').copy()
-    
     df.columns = [str(c).strip() for c in df.columns]
-    
     if 'VungTau' in df.columns:
         df = df.dropna(subset=['VungTau']).copy()
         
@@ -79,7 +77,6 @@ def process_and_style_df(df, show_past_dates=False):
             css = base_css 
             val_str = str(val)
             if 'Dir' in str(col_name):
-                # ĐÃ HẠ FONT-SIZE XUỐNG 18PX ĐỂ CỘT KHÔNG BỊ GIÃN
                 if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 18px;"
                 elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 18px;"
             elif 'Port' in str(col_name) or '-P' in str(col_name):
@@ -91,7 +88,11 @@ def process_and_style_df(df, show_past_dates=False):
             styles.append(css)
         return styles
 
-    styler = df.style.apply(style_row, axis=1)
+    # --- ÉP MÀU VÀNG CHO BẢNG WINDOW CHÍNH ---
+    styler = df.style.apply(style_row, axis=1).set_table_styles([
+        {'selector': 'th', 'props': [('background-color', '#ffe699 !important'), ('color', '#111 !important')]}
+    ])
+    
     if hasattr(styler, "hide"):
         return styler.hide(subset=["_dow", "_actual_date"], axis="columns")
     else:
@@ -188,7 +189,11 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
         css = bg + "font-size: 20px; "
         return [css] * len(row)
 
-    styler = df_res.style.apply(style_sum, axis=1)
+    # --- ÉP MÀU VÀNG BẢNG MAX DRAFT ---
+    styler = df_res.style.apply(style_sum, axis=1).set_table_styles([
+        {'selector': 'th', 'props': [('background-color', '#ffe699 !important'), ('color', '#111 !important')]}
+    ])
+    
     if hasattr(styler, "hide"):
         return styler.hide(subset=["_dow", "_sort"], axis="columns"), None
     else:

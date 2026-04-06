@@ -3,7 +3,6 @@ import pandas as pd
 import streamlit as st
 from utils.data_processor import process_and_style_df
 
-# KHỞI TẠO MÚI GIỜ VIỆT NAM (UTC+7)
 VN_TZ = datetime.timezone(datetime.timedelta(hours=7))
 
 ROUTE_MAP = {
@@ -54,7 +53,7 @@ def load_all_tide_data(file_path="data_tide.xlsx"):
 def load_raw_window(file_path="data_window.xlsx"):
     try:
         df = pd.read_excel(file_path, sheet_name="WindowCL")
-        df.columns = [str(c).strip() for c in df.columns] # Chuẩn hóa tên cột
+        df.columns = [str(c).strip() for c in df.columns] 
         raw_dates = pd.to_datetime(df['Date'], errors='coerce')
         is_valid = raw_dates.apply(lambda x: pd.notna(x) and x.year > 2000)
         df['_actual_date'] = raw_dates.where(is_valid).bfill(limit=1).ffill().dt.date
@@ -88,24 +87,36 @@ def get_tide_at_eta(tide_db, point, eta_dt):
     if pd.isna(v1) or pd.isna(v2): return v1 
     return v1 + (v2 - v1) * (m / 60.0)
 
-# --- THUẬT TOÁN ĐỌC TÊN CỘT CHUẨN ---
+# --- THUẬT TOÁN ĐÃ ĐƯỢC NÂNG CẤP XỬ LÝ CHRONOLOGICAL MIDNIGHT CROSSING ---
 def check_current_condition(pob_dt, direction, raw_win_df):
     if raw_win_df is None or raw_win_df.empty: return False
     try:
         pob_date = pob_dt.date()
+        # Luôn quét 3 ngày (Hôm qua, Hôm nay, Ngày mai) để chặn mọi kịch bản vắt qua đêm
+        dates_to_check = [pob_date - datetime.timedelta(days=1), pob_date, pob_date + datetime.timedelta(days=1)]
+        df_check = raw_win_df[raw_win_df['_actual_date'].isin(dates_to_check)].copy()
+        if df_check.empty: return False
+
+        def parse_time(v):
+            if isinstance(v, datetime.time): return v
+            s = str(v).strip()
+            if s.startswith("24:"): return datetime.time(23, 59, 59)
+            if len(s) >= 4 and ":" in s:
+                parts = s.split(":")
+                return datetime.time(int(parts[0]), int(parts[1][:2]))
+            raise ValueError
+
         if "Inbound" in direction:
-            df_inb = raw_win_df[raw_win_df['_actual_date'].isin([pob_date, pob_date + datetime.timedelta(days=1)])].copy()
             vt_data = []
-            
-            vt_col, lvl_col = "VungTau", "Level"
-            if vt_col not in df_inb.columns or lvl_col not in df_inb.columns: return False
-            
-            for idx, row in df_inb.iterrows():
+            vt_col = next((c for c in df_check.columns if "vung" in str(c).lower().replace(" ", "")), None)
+            lvl_col = next((c for c in df_check.columns if "level" in str(c).lower()), None)
+            if not vt_col or not lvl_col: return False
+
+            for idx, row in df_check.iterrows():
                 vt_time, lvl = row.get(vt_col), row.get(lvl_col)
                 if pd.notna(vt_time) and pd.notna(lvl):
                     try:
-                        t = vt_time if isinstance(vt_time, datetime.time) else datetime.datetime.strptime(str(vt_time).strip()[:5], "%H:%M").time()
-                        vt_data.append({'dt': datetime.datetime.combine(row['_actual_date'], t), 'level': float(lvl)})
+                        vt_data.append({'dt': datetime.datetime.combine(row['_actual_date'], parse_time(vt_time)), 'level': float(lvl)})
                     except: pass
             vt_data.sort(key=lambda x: x['dt'])
             for i in range(len(vt_data)):
@@ -117,21 +128,67 @@ def check_current_condition(pob_dt, direction, raw_win_df):
             return False
             
         else: # Outbound
-            df_outb = raw_win_df[raw_win_df['_actual_date'] == pob_date].copy()
-            
-            b_col, e_col = "Begin UB-Port", "End UB-Starboard"
-            if b_col not in df_outb.columns or e_col not in df_outb.columns: return False
-            
-            for idx, row in df_outb.iterrows():
-                b_val, e_val = row.get(b_col), row.get(e_col)
-                if pd.notna(b_val) and pd.notna(e_val):
+            b_cols = [c for c in df_check.columns if "begin" in str(c).lower() and "ub" in str(c).lower()]
+            e_cols = [c for c in df_check.columns if "end" in str(c).lower() and "ub" in str(c).lower()]
+            vt_col = next((c for c in df_check.columns if "vung" in str(c).lower().replace(" ", "")), None)
+
+            for idx, row in df_check.iterrows():
+                # BƯỚC 1: XÁC ĐỊNH XEM DÒNG NÀY LÀ TRIỀU NGÀY HAY TRIỀU ĐÊM
+                times = []
+                for c in b_cols + e_cols:
+                    v = row.get(c)
+                    if pd.notna(v) and str(v).strip() not in ["", "nan"]:
+                        try: times.append(parse_time(v))
+                        except: pass
+
+                is_evening_tide = False
+                vt_val = row.get(vt_col) if vt_col else None
+                if pd.notna(vt_val) and str(vt_val).strip() not in ["", "nan"]:
                     try:
-                        b_t = b_val if isinstance(b_val, datetime.time) else datetime.datetime.strptime(str(b_val).strip()[:5], "%H:%M").time()
-                        e_t = e_val if isinstance(e_val, datetime.time) else datetime.datetime.strptime(str(e_val).strip()[:5], "%H:%M").time()
-                        b_dt, e_dt = datetime.datetime.combine(pob_date, b_t), datetime.datetime.combine(pob_date, e_t)
-                        if e_dt < b_dt: e_dt += datetime.timedelta(days=1)
-                        if b_dt <= pob_dt <= e_dt: return True
+                        vt_t = parse_time(vt_val)
+                        if vt_t.hour >= 12: is_evening_tide = True
                     except: pass
+                else:
+                    if any(t.hour >= 16 for t in times): is_evening_tide = True
+
+                # BƯỚC 2: QUY ĐỔI TOÀN BỘ BEGIN SANG DATETIME TUYỆT ĐỐI
+                b_dts = []
+                for c in b_cols:
+                    v = row.get(c)
+                    if pd.notna(v) and str(v).strip() not in ["", "nan"]:
+                        try:
+                            t = parse_time(v)
+                            dt = datetime.datetime.combine(row['_actual_date'], t)
+                            # Nếu là triều đêm và giờ là 00:00 -> 11:59 sáng, chắc chắn thuộc ngày hôm sau
+                            if is_evening_tide and t.hour < 12:
+                                dt += datetime.timedelta(days=1)
+                            b_dts.append(dt)
+                        except: pass
+
+                # BƯỚC 3: QUY ĐỔI TOÀN BỘ END SANG DATETIME TUYỆT ĐỐI
+                e_dts = []
+                for c in e_cols:
+                    v = row.get(c)
+                    if pd.notna(v) and str(v).strip() not in ["", "nan"]:
+                        try:
+                            t = parse_time(v)
+                            dt = datetime.datetime.combine(row['_actual_date'], t)
+                            if is_evening_tide and t.hour < 12:
+                                dt += datetime.timedelta(days=1)
+                            e_dts.append(dt)
+                        except: pass
+
+                # BƯỚC 4: TÌM MIN CỦA BEGIN VÀ MAX CỦA END DỰA TRÊN NGÀY GIỜ TUYỆT ĐỐI
+                if b_dts and e_dts:
+                    min_b_dt = min(b_dts)
+                    max_e_dt = max(e_dts)
+
+                    # An toàn dự phòng
+                    if max_e_dt < min_b_dt:
+                        max_e_dt += datetime.timedelta(days=1)
+
+                    if min_b_dt <= pob_dt <= max_e_dt:
+                        return True
             return False
     except: return False
 
