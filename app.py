@@ -6,6 +6,7 @@ from tabs.tab_window import render_window_tab
 from tabs.tab_max_draft import render_max_draft_tab
 from tabs.tab_admin import render_admin_page
 from tabs.tab_tide_calc import render_tide_calc_tab
+from tabs.tab_channel_info import render_channel_info_tab
 
 # --- 1. ĐỊNH NGHĨA FILE ---
 DATA_FILE = "data_window.xlsx"
@@ -151,7 +152,7 @@ if current_page == "🌊 Bảng thông tin":
     # ĐỔI TÊN TAB THEO YÊU CẦU
     selected_tab = st.radio(
         "Chọn tính năng:", 
-        ["Tide Calc CÁT LÁI", "CÁT LÁI", "CÁI MÉP", "Max Draft Table", "POB Table"], 
+        ["Tide Calc CÁT LÁI", "CÁT LÁI", "CÁI MÉP", "Max Draft Table", "Channel Infor"], 
         horizontal=True, 
         label_visibility="collapsed"
     )
@@ -160,7 +161,7 @@ if current_page == "🌊 Bảng thông tin":
         st.markdown("### ⚙️ Tuỳ chọn chung")
         show_past_global = st.toggle("🕰️ Hiển thị ngày đã qua", value=False)
         
-        st.session_state.show_full_cols = st.toggle("Hiển thị đủ tên cột", value=False)
+        st.session_state.show_full_cols = st.toggle("Hiển thị đủ tên cột", value=True)
         # GHI CHÚ ĐÃ ĐƯỢC IN ĐẬM VÀ TÔ MÀU ĐÚNG CHUẨN
         st.markdown("""
         <div style='font-size: 13.5px; color: #555; background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: -10px; margin-bottom: 15px; border-left: 3px solid #1E90FF;'>
@@ -203,8 +204,10 @@ if current_page == "🌊 Bảng thông tin":
         render_tide_calc_tab(direction)
     elif selected_tab == "Max Draft Table":
         render_max_draft_tab(config, grp, m_sel)
-    elif selected_tab == "POB Table":
-        st.write("Đang phát triển Tab POB Table...")
+    
+    # --- ĐÃ SỬA CHỖ NÀY ĐỂ GỌI TAB CHANNEL INFOR ---
+    elif selected_tab == "Channel Infor":
+        render_channel_info_tab()
 
 elif current_page == "⚙️ Quản lý hệ thống":
     if config.get("logged_in", False):
@@ -233,7 +236,32 @@ elif current_page == "⚙️ Quản lý hệ thống":
                         st.rerun()
                     else:
                         st.error("Sai tài khoản hoặc mật khẩu!")
-
 with st.sidebar:
-    st.divider()
-    st.markdown(f'<div style="display: flex; justify-content: space-between; font-size: 0.85em;"><span>V 1.21</span><span id="sidebar-countdown" style="color: #ff4b4b;"></span></div>', unsafe_allow_html=True)
+    # Gom tất cả: Đường kẻ trên -> Phiên bản/Countdown -> Tên tác giả -> Đường kẻ dưới vào 1 khối
+    st.markdown(f'''
+        <hr style="margin: 8px 0 4px 0; border: 0; border-top: 1px solid #ddd;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85em; line-height: 1.2;">
+            <span style="font-weight: bold;">V 1.25</span>
+            <span id="sidebar-countdown" style="color: #ff4b4b; font-weight: bold;"></span>
+        </div>
+        <div style="margin-top: 1px;">
+            <i style="font-size: 0.75em; color: gray; display: block;">Built by @Hai.PT(NP44)</i>
+        </div>
+        <hr style="margin: 4px 0 8px 0; border: 0; border-top: 1px solid #ddd;">
+    ''', unsafe_allow_html=True)
+
+    with st.expander("⚖️ Miễn trừ trách nhiệm / Disclaimer"):
+        st.markdown("""
+            <div style='font-size: 11px; line-height: 1.4; color: gray; text-align: justify;'>
+                <b>MIỄN TRỪ TRÁCH NHIỆM:</b><br>
+                Website này và các công cụ tính toán đi kèm được cung cấp chỉ nhằm mục đích thông tin và tham khảo. 
+                Nhà phát triển (@Hai.PT) không đưa ra bất kỳ cam kết nào về độ tin cậy của dữ liệu cho mục đích điều động tàu.
+                <br><br>
+                <b>GIỚI HẠN TRÁCH NHIỆM:</b><br>
+                Nhà phát triển không chịu trách nhiệm cho bất kỳ tổn thất hoặc tai nạn hàng hải nào (tàu cạn, va chạm...) 
+                phát sinh từ việc sử dụng thông tin này. Quyết định điều động tàu cuối cùng thuộc về Thuyền trưởng và Hoa tiêu trên tàu. 
+                Người dùng bắt buộc phải đối chiếu với bảng thủy triều chính thức (VMS-South).
+                <br><br>
+                <i>Bằng việc sử dụng website này, bạn đồng ý chấp nhận mọi rủi ro và từ bỏ mọi quyền khiếu nại pháp lý đối với nhà phát triển.</i>
+            </div>
+        """, unsafe_allow_html=True)
