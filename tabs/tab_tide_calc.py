@@ -49,7 +49,7 @@ def render_tide_calc_tab(direction):
             # --- CẬP NHẬT CÂU THÔNG BÁO CHO OPT 1 ---
             st.info(f"💡 Hệ thống sẽ kiểm tra AN TOÀN cho POB: **{pob_time.strftime('%H:%M')}** và MỚN: **{draft}m**.")
         else:
-            st.info(f"🤖 Hệ thống tự động tìm tất cả giờ POB cho mớn nước {draft}m trong ngày *(Để mớn càng nhỏ, giờ POB trong bảng càng nhiều)*.")
+            st.info(f"🤖 Hệ thống tự động tìm tất cả giờ POB cho mớn nước {draft}m trong ngày *(Để mớn càng nhỏ, giờ POB trong bảng càng nhiều, sẽ tìm được giờ POB cho các mớn nước cao hơn)*.")
 
         if st.button("🚀 PROCESS", use_container_width=True, type="primary"):
             st.session_state.tide_calc_run = True
