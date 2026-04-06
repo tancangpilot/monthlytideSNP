@@ -1,11 +1,7 @@
 import streamlit as st
 import datetime
 import pandas as pd
-from utils.tide_engine import load_all_tide_data, get_window_cl_for_date, calculate_opt1_safety, calculate_opt2_safe_times, get_day_draft_extrema, ROUTE_MAP, VN_TZ
-
-# KHỞI TẠO BIẾN TRẠNG THÁI CHO NÚT PROCESS
-if "tide_calc_run" not in st.session_state:
-    st.session_state.tide_calc_run = False
+from utils.tide_engine import load_all_tide_data, load_raw_window, check_current_condition, get_window_cl_for_date, calculate_opt1_safety, calculate_opt2_safe_times, get_day_draft_extrema, ROUTE_MAP, VN_TZ
 
 def reset_calc():
     st.session_state.tide_calc_run = False
@@ -32,7 +28,9 @@ def render_tide_calc_tab(direction):
     
     wpts = ROUTE_MAP.get(route_sel, [])
     info_str = " &nbsp;|&nbsp; ".join([f"<span style='color:#1E90FF; font-weight:bold;'>{pt}</span> = POB {format_transit_time(mins)}" for pt, mins in wpts])
-    st.markdown(f"<div style='margin-top: 5px; margin-bottom: 5px; font-size: 14.5px; color: #444; background-color: #f0f2f6; padding: 8px 12px; border-radius: 5px; border-left: 4px solid #1E90FF;'><b>⏳ Chi tiết:</b> {info_str}</div>", unsafe_allow_html=True)
+    
+    dir_text = "ĐI RA" if "Outbound" in direction else "ĐI VÀO"
+    st.markdown(f"<div style='margin-top: 5px; margin-bottom: 5px; font-size: 14.5px; color: #444; background-color: #f0f2f6; padding: 8px 12px; border-radius: 5px; border-left: 4px solid #1E90FF;'><b>⏳ {dir_text}:</b> {info_str}</div>", unsafe_allow_html=True)
     
     st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
     
@@ -48,9 +46,9 @@ def render_tide_calc_tab(direction):
         pob_time = None
         if is_single:
             pob_time = st.time_input("Nhập giờ POB", get_rounded_time(), step=datetime.timedelta(minutes=30), on_change=reset_calc)
-            st.info("💡 Hệ thống sẽ kiểm tra an toàn cho mốc giờ này.")
+            # --- CẬP NHẬT CÂU THÔNG BÁO CHO OPT 1 ---
+            st.info(f"💡 Hệ thống sẽ kiểm tra AN TOÀN cho POB: **{pob_time.strftime('%H:%M')}** và MỚN: **{draft}m**.")
         else:
-            # Dòng mới đã thêm chú thích in nghiêng
             st.info(f"🤖 Hệ thống tự động tìm tất cả giờ POB cho mớn nước {draft}m trong ngày *(Để mớn càng nhỏ, giờ POB trong bảng càng nhiều)*.")
 
         if st.button("🚀 PROCESS", use_container_width=True, type="primary"):
@@ -63,9 +61,23 @@ def render_tide_calc_tab(direction):
                 
                 if is_single:
                     res, safe, m_d, btnk = calculate_opt1_safety(route_sel, pob_date, pob_time, draft, config, db)
-                    if safe: st.success(f"🟢 **ĐỦ NƯỚC** (Min mớn {m_d:.1f}m tại {btnk})")
-                    else: st.error(f"🔴 **KHÔNG ĐỦ NƯỚC tại {btnk}** ({m_d:.1f}m)")
-                    st.dataframe(pd.DataFrame(res), use_container_width=True, hide_index=True)
+                    
+                    # --- BƯỚC 1: ĐƯA BẢNG LÊN TRÊN ---
+                    df_res1 = pd.DataFrame(res)
+                    styler1 = df_res1.style.set_table_styles([{'selector': 'th', 'props': [('background-color', '#ffe699 !important'), ('color', '#111 !important')]}])
+                    st.dataframe(styler1, use_container_width=True, hide_index=True)
+                    
+                    # --- BƯỚC 2: CHECK WINDOW VÀ HIỂN THỊ DÒNG TỔNG KẾT XUỐNG DƯỚI ---
+                    raw_win_df = load_raw_window()
+                    pob_dt = datetime.datetime.combine(pob_date, pob_time)
+                    in_window = check_current_condition(pob_dt, direction, raw_win_df)
+                    window_status = "TRONG WINDOW" if in_window else "NGOÀI WINDOW"
+                    
+                    if safe: 
+                        st.success(f"🟢 **ĐỦ NƯỚC** (min Draft {m_d:.1f}m tại {btnk}) đi tuyến **{route_sel}** ({window_status}).")
+                    else: 
+                        st.error(f"🔴 **KHÔNG ĐỦ NƯỚC tại {btnk}** ({m_d:.1f}m) đi tuyến **{route_sel}** ({window_status}).")
+                    
                 else:
                     safe_details = calculate_opt2_safe_times(route_sel, pob_date, draft, config, db, direction)
                     max_3, min_3 = get_day_draft_extrema(route_sel, pob_date, config, db)
@@ -89,14 +101,17 @@ def render_tide_calc_tab(direction):
                             row["_current_safe"] = detail["current_safe"]
                             table_data.append(row)
                         
-                        df_res = pd.DataFrame(table_data)
+                        df_res2 = pd.DataFrame(table_data)
                         def highlight_row(row):
                             if row.get('_current_safe', False):
                                 return ['background-color: #d4edda; color: #155724; font-weight: bold;'] * len(row)
                             return [''] * len(row)
                         
-                        st.dataframe(df_res.style.apply(highlight_row, axis=1), hide_index=True, use_container_width=True, column_config={"_current_safe": None})
-                        st.markdown("<div style='font-size: 14px; color: #444; margin-top: 2px; margin-bottom: 15px;'>🟩 <i><b>Dòng chữ xanh:</b> Thỏa mãn điều kiện dòng chảy (Window).</i></div>", unsafe_allow_html=True)
+                        styler2 = df_res2.style.apply(highlight_row, axis=1).set_table_styles([
+                            {'selector': 'th', 'props': [('background-color', '#ffe699 !important'), ('color', '#111 !important')]}
+                        ])
+                        st.dataframe(styler2, hide_index=True, use_container_width=True, column_config={"_current_safe": None})
+                        st.markdown("<div style='font-size: 14px; color: #444; margin-top: 2px; margin-bottom: 15px;'>🟩 <i><b>Dòng chữ xanh:</b> là các giờ POB trong WINDOW.</i></div>", unsafe_allow_html=True)
 
                 col_y, col_t, col_m = st.columns(3)
                 dates = [
