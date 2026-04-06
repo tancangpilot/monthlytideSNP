@@ -39,7 +39,7 @@ def render_tide_calc_tab(direction):
         with c1: 
             pob_date = st.date_input("POB Date", datetime.datetime.now(VN_TZ).date(), on_change=reset_calc)
         with c2: 
-            draft = st.number_input("Draft (m)", min_value=0.0, value=8.5, step=0.1, on_change=reset_calc)
+            draft = st.number_input("Draft (m)", min_value=0.0, value=9.5, step=0.1, on_change=reset_calc)
         with c3:
             is_single = st.checkbox("🎯 Check 1 giờ cụ thể", value=False, on_change=reset_calc)
 
@@ -49,7 +49,7 @@ def render_tide_calc_tab(direction):
             # --- CẬP NHẬT CÂU THÔNG BÁO CHO OPT 1 ---
             st.info(f"💡 Hệ thống sẽ kiểm tra AN TOÀN cho POB: **{pob_time.strftime('%H:%M')}** và MỚN: **{draft}m**.")
         else:
-            st.info(f"🤖 Hệ thống tự động tìm tất cả giờ POB cho mớn nước {draft}m trong ngày *(Để mớn càng nhỏ, giờ POB trong bảng càng nhiều, sẽ tìm được giờ POB cho các mớn nước cao hơn)*.")
+            st.info(f"🤖 Hệ thống tự động tìm tất cả giờ POB cho mớn nước {draft}m trong ngày *(Để mớn càng nhỏ, giờ POB trong bảng càng nhiều)*.")
 
         if st.button("🚀 PROCESS", use_container_width=True, type="primary"):
             st.session_state.tide_calc_run = True
