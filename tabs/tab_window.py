@@ -3,14 +3,36 @@ import pandas as pd
 import os
 from utils.data_processor import process_and_style_df
 
-def render_window_tab(file_path, sheet_name, show_past, disclaimer_text, show_ub=True, show_b=True):
-    st.markdown(disclaimer_text)
+def render_window_tab(file_path, sheet_name, disclaimer_text):
+    
+    # --- KHU VỰC NÚT BẬT IN ---
+    c1, c2 = st.columns([3, 1])
+    with c2:
+        print_mode = st.toggle("🖨️ BẬT CHẾ ĐỘ IN (A4 Dọc)", value=False)
+        
+    with c1:
+        if not print_mode:
+            st.markdown(disclaimer_text)
+
+    # --- KHU VỰC ĐIỀU KHIỂN NẰM NGAY TRÊN BẢNG ---
+    if not print_mode:
+        with st.container(border=True):
+            col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+            with col_c1: show_past = st.toggle("🕰️ Hiện ngày đã qua", value=False)
+            with col_c2: st.session_state.show_full_cols = st.toggle("Hiển thị đủ tên cột", value=False)
+            with col_c3: show_ub = st.toggle("Ẩn/Hiện UB (Rời)", value=True)
+            with col_c4: show_b = st.toggle("Ẩn/Hiện B (Cập)", value=True)
+    else:
+        show_past = False
+        st.session_state.show_full_cols = False
+        show_ub = True
+        show_b = True
+
     if os.path.exists(file_path):
         try:
             df_raw = pd.read_excel(file_path, sheet_name=sheet_name)
-            df_raw.columns = [str(c).strip() for c in df_raw.columns] # Gọt khoảng trắng thừa
+            df_raw.columns = [str(c).strip() for c in df_raw.columns] 
             
-            # Lọc ẩn/hiện cột UB và B
             cols_to_keep = list(df_raw.columns)
             if not show_ub:
                 cols_to_keep = [c for c in cols_to_keep if "UB" not in str(c)]
@@ -18,35 +40,76 @@ def render_window_tab(file_path, sheet_name, show_past, disclaimer_text, show_ub
                 cols_to_keep = [c for c in cols_to_keep if not (" B-" in str(c) and "UB" not in str(c))]
 
             df_filtered = df_raw[cols_to_keep]
-            
-            # Chuyền qua data_processor để định dạng và tự động bóp ngắn tên cột (nếu công tắc tắt)
             styled_df = process_and_style_df(df_filtered, show_past_dates=show_past)
             
-            # --- CẤU HÌNH CỘT (CHỈ GẮN TOOLTIP, KHÔNG ÉP TÊN) ---
-            col_settings = {
-                "_dow": None, 
-                "_actual_date": None, 
-                "Date": st.column_config.TextColumn("Date", pinned=True)
-            }
-            
-            for original_col in styled_df.data.columns:
-                if original_col in ["Date", "_dow", "_actual_date", "Level", "Dir", "Slack", "VungTau"]:
-                    continue
+            # =========================================================
+            # PHÂN NHÁNH HIỂN THỊ (IN ẤN VS WEB)
+            # =========================================================
+            if print_mode:
+                # .hide() sẽ loại bỏ cột số thứ tự (Index) khi xuất HTML
+                html_table = styled_df.hide().set_table_attributes('class="print-window"').to_html()
                 
-                # Trả lại tên đúng như dataframe, chỉ gắn Tooltip giải nghĩa khi rê chuột
-                col_settings[original_col] = st.column_config.TextColumn(
-                    original_col, 
-                    help="*(B/E: Begin/End | UB/B: Unberthing/Berthing | P/Stb: Port/Starboard)*"
-                )
-            
-            # Render bảng
-            st.dataframe(
-                styled_df, 
-                use_container_width=False, 
-                height=750, 
-                hide_index=True, 
-                column_config=col_settings
-            )
+                # Làm sạch dòng ghi chú để in
+                raw_note = disclaimer_text.replace(":red[", "").replace("]", "").replace("*", "")
+                
+                # Xác định tên sông để làm tiêu đề
+                display_name = "CÁI MÉP" if "CM" in sheet_name else "CÁT LÁI"
+                
+                html_content = f"""
+<style>
+@media print {{
+    @page {{ size: A4 portrait; margin: 10mm; }}
+    [data-testid="stSidebar"], header, .stToggle, .stCheckbox, .stRadio {{ display: none !important; }}
+    .stApp {{ background-color: white !important; }}
+}}
+
+.print-window {{ width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; text-align: center; margin-top: 5px; }}
+
+.print-window th, .print-window td {{ 
+    border: 1px solid #444 !important; 
+    padding: 5px 2px !important; 
+    font-size: 11.5px !important; 
+}}
+
+.print-window th {{ 
+    background-color: #ffe699 !important; 
+    color: #111 !important; 
+    font-weight: bold !important;
+    font-size: 12px !important;
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact; 
+}}
+</style>
+
+<div style='font-size: 18px; font-weight: bold; text-align: center; color: #111; margin-bottom: 2px; text-transform: uppercase;'>
+    BẢNG WINDOW {display_name}
+</div>
+<div style='font-size: 11.5px; font-style: italic; text-align: center; color: #d93025; margin-bottom: 8px; line-height: 1.4;'>
+    {raw_note}
+</div>
+{html_table}
+"""
+                st.markdown(html_content, unsafe_allow_html=True)
+
+            else:
+                # CHẾ ĐỘ WEB
+                col_settings = {
+                    "_dow": None, 
+                    "_actual_date": None, 
+                    "Date": st.column_config.TextColumn("Date", pinned=True)
+                }
+                
+                for original_col in styled_df.data.columns:
+                    if original_col in ["Date", "_dow", "_actual_date", "Level", "Dir", "Slack", "VungTau"]:
+                        continue
+                    
+                    col_settings[original_col] = st.column_config.TextColumn(
+                        original_col, 
+                        help="*(B/E: Begin/End | UB/B: Unberthing/Berthing | P/Stb: Port/Starboard)*"
+                    )
+                
+                st.dataframe(styled_df, use_container_width=False, height=750, hide_index=True, column_config=col_settings)
+                
         except Exception as e:
             st.error(f"Lỗi hiển thị: {e}")
     else:
