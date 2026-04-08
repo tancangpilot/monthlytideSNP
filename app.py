@@ -173,7 +173,7 @@ with st.sidebar:
         <div style="margin-top: 15px;"></div>
         <hr style="margin: 8px 0 4px 0; border: 0; border-top: 1px solid #ddd;">
         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85em; line-height: 1.2;">
-            <span style="font-weight: bold;">V 1.25</span><span id="sidebar-countdown" style="color: #ff4b4b; font-weight: bold;"></span>
+            <span style="font-weight: bold;">V 1.35</span><span id="sidebar-countdown" style="color: #ff4b4b; font-weight: bold;"></span>
         </div>
         <div style="margin-top: 1px;"><i style="font-size: 0.75em; color: gray; display: block;">Built by @Hai.PT(NP44)</i></div>
         <hr style="margin: 4px 0 8px 0; border: 0; border-top: 1px solid #ddd;">
