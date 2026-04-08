@@ -34,7 +34,7 @@ TAB_MAP = {
 }
 REVERSE_MAP = {v: k for k, v in TAB_MAP.items()}
 
-st.set_page_config(page_title="Tide Schedule", page_icon="logoHTTC.png", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Tide Schedule", page_icon="logoHTTC.jpg", layout="wide", initial_sidebar_state="collapsed")
 
 if "active_tab_key" not in st.session_state:
     st.session_state.active_tab_key = REVERSE_MAP.get(st.query_params.get("tab", "tide_cl"), "🧭 Tide Calc CÁT LÁI")
@@ -42,31 +42,87 @@ if "active_tab_key" not in st.session_state:
 def update_url_params(): 
     st.query_params["tab"] = TAB_MAP[st.session_state.active_tab_key]
 
-# --- CSS BIẾN RADIO THÀNH MENU "HÀNG HIỆU" ---
+# =====================================================================
+# CSS ĐỘ GIAO DIỆN HÀNG HIỆU
+# =====================================================================
 st.markdown("""
     <style>
+    /* 1. Header & Container */
     header[data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; border-bottom: none !important; height: 3rem !important; }
-    [data-testid="stSidebarCollapseButton"] { background-color: #ffffff !important; border: 1px solid #1E90FF !important; border-radius: 50% !important; box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important; z-index: 999999 !important; }
     .block-container { padding-top: 0rem !important; margin-top: 1.5rem !important; padding-bottom: 0rem !important; padding-left: 2rem !important; padding-right: 2rem !important; }
+
+    /* 2. Menu Radio Hàng Hiệu */
+    [data-testid="stSidebar"] [data-testid="stRadio"] { margin-top: -20px !important; }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label { padding-top: 2px !important; padding-bottom: 2px !important; }
+    [data-testid="stSidebar"] h3 { margin-top: -10px !important; margin-bottom: 5px !important; font-size: 1.1rem !important; }
+    [data-testid="stSidebar"] hr { margin-top: 8px !important; margin-bottom: 8px !important; }
     
-    [data-testid="stSidebar"] [data-testid="stRadio"] div[data-baseweb="radio"] > div:first-child { display: none !important; }
-    [data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] { width: 100% !important; }
-    
-    [data-testid="stSidebar"] [data-testid="stRadio"] label[data-baseweb="radio"] {
-        background-color: #ffffff; border: 1px solid #eee; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; cursor: pointer; transition: all 0.2s ease;
-        width: 100% !important; box-sizing: border-box !important; display: flex !important; align-items: center !important;
+    [data-testid="stMainBlockContainer"] [data-testid="stRadio"] div[role="radiogroup"] label[data-baseweb="radio"] {
+        padding: 8px 12px !important; border: 2px solid transparent !important; border-radius: 8px !important; margin-bottom: 2px; transition: all 0.2s ease;
     }
-    [data-testid="stSidebar"] [data-testid="stRadio"] label[data-baseweb="radio"]:hover { background-color: #f8f9fa; border-color: #ccc; }
-    
-    [data-testid="stSidebar"] [data-testid="stRadio"] label[data-baseweb="radio"]:has(input:checked) {
-        background-color: #f0f8ff !important; border-color: transparent !important; border-left: 5px solid #1E90FF !important; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    [data-testid="stMainBlockContainer"] [data-testid="stRadio"] div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) {
+        border: 2px solid #1E90FF !important; background-color: #f0f8ff !important;
     }
-    [data-testid="stSidebar"] [data-testid="stRadio"] label[data-baseweb="radio"]:has(input:checked) p { font-weight: bold !important; color: #1E90FF !important; }
-    
-    [data-testid="stSidebar"] [data-testid="stRadio"] { margin-top: 5px !important; }
+
+    /* 3. Bảng và Form Input */
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th { font-size: 20px !important; }
     [data-testid="stDataFrame"] th { background-color: #ffe699 !important; color: #111 !important; }
     .stDateInput div[data-baseweb="input"], .stTimeInput div[data-baseweb="input"], .stNumberInput div[data-baseweb="input"] { font-size: 20px !important; }
+    .stMarkdown p, label { font-size: 18px !important; }
+
+    /* =======================================================
+       4. NÚT ĐÓNG BÊN TRONG SIDEBAR (TRÒN TRẮNG)
+       ======================================================= */
+    [data-testid="stSidebar"] button[kind="header"] { 
+        background-color: #ffffff !important; 
+        border: 1px solid #1E90FF !important; 
+        border-radius: 50% !important; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important; 
+        z-index: 999999 !important;
+    }
+
+    /* =======================================================
+       5. NÚT MỞ BÊN NGOÀI (TAB XANH NHỊP TIM ĐẬP)
+       ======================================================= */
+    /* Xác định chính xác vùng chứa nút MỞ góc trái */
+    [data-testid="collapsedControl"] {
+        position: fixed !important;
+        top: 15px !important;
+        left: 0px !important;
+        z-index: 999999 !important;
+    }
+
+    /* Đúc khuôn Tab xanh bo góc */
+    [data-testid="collapsedControl"] button {
+        background-color: #1E90FF !important; 
+        border: none !important;
+        border-radius: 0 8px 8px 0 !important; 
+        padding: 5px 8px 5px 2px !important;
+        box-shadow: 3px 2px 10px rgba(30, 144, 255, 0.4) !important;
+        transition: all 0.3s ease !important;
+        animation: pulseMenu 2s infinite !important; 
+    }
+    
+    /* Đổi màu Icon Mũi Tên (>>) thành Trắng tinh */
+    [data-testid="collapsedControl"] button svg {
+        color: white !important;
+        fill: white !important;
+        width: 22px !important;
+        height: 22px !important;
+    }
+    
+    /* Đẩy nhẹ ra khi rê chuột */
+    [data-testid="collapsedControl"] button:hover {
+        background-color: #0056b3 !important;
+        padding-left: 10px !important; 
+    }
+    
+    /* Hiệu ứng nhịp tim (Pulse) tỏa sóng */
+    @keyframes pulseMenu {
+        0% { box-shadow: 0 0 0 0 rgba(30, 144, 255, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(30, 144, 255, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(30, 144, 255, 0); }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -81,7 +137,7 @@ components.html("""<script>
             isOpen = true; timeLeft = 60; if (cd) cd.innerText = `Auto hide: ${timeLeft}s`;
             autoCloseTimer = setInterval(() => {
                 timeLeft -= 1; if (cd) cd.innerText = `Auto hide: ${timeLeft}s`;
-                if (timeLeft <= 0) { clearInterval(autoCloseTimer); if (cd) cd.innerText = ""; const btn = doc.querySelector('[data-testid="stSidebarCollapseButton"]') || doc.querySelector('button[aria-label="Collapse sidebar"]'); if (btn) btn.click(); }
+                if (timeLeft <= 0) { clearInterval(autoCloseTimer); if (cd) cd.innerText = ""; const btn = doc.querySelector('[data-testid="stSidebarCollapseButton"]') || doc.querySelector('button[aria-label="Collapse sidebar"]') || doc.querySelector('button[kind="header"]'); if (btn) btn.click(); }
             }, 1000);
         } else if (!isExpanded && isOpen) { isOpen = false; clearInterval(autoCloseTimer); if (cd) cd.innerText = ""; }
     }, 500);
@@ -95,7 +151,6 @@ config = st.session_state.config
 # ==========================================
 with st.sidebar:
     current_page = st.radio("Navigation", ["🌊 Bảng thông tin", "⚙️ Quản lý hệ thống"], label_visibility="collapsed")
-    #st.divider()
     st.markdown("<hr style='margin: 0px 0 10px 0; border: 0; border-top: 1.5px solid #eee;'>", unsafe_allow_html=True)
 
     if current_page == "🌊 Bảng thông tin":
@@ -122,8 +177,24 @@ with st.sidebar:
         <div style="margin-top: 1px;"><i style="font-size: 0.75em; color: gray; display: block;">Built by @Hai.PT(NP44)</i></div>
         <hr style="margin: 4px 0 8px 0; border: 0; border-top: 1px solid #ddd;">
     ''', unsafe_allow_html=True)
+
+    # KHỐI 5: MIỄN TRỪ TRÁCH NHIỆM CHUẨN GỐC
     with st.expander("⚖️ Miễn trừ trách nhiệm / Disclaimer"):
-        st.markdown("<div style='font-size: 11px; line-height: 1.4; color: gray; text-align: justify;'><b>MIỄN TRỪ TRÁCH NHIỆM:</b><br>Website này và các công cụ tính toán đi kèm được cung cấp chỉ nhằm mục đích thông tin và tham khảo. Nhà phát triển (@Hai.PT) không đưa ra bất kỳ cam kết nào về độ tin cậy của dữ liệu cho mục đích điều động tàu.<br><br><b>GIỚI HẠN TRÁCH NHIỆM:</b><br>Nhà phát triển không chịu trách nhiệm cho bất kỳ tổn thất hoặc tai nạn hàng hải nào. Quyết định điều động tàu cuối cùng thuộc về Thuyền trưởng và Hoa tiêu trên tàu. Người dùng bắt buộc phải đối chiếu với bảng thủy triều chính thức (VMS-South).</div>", unsafe_allow_html=True)
+        st.markdown("""
+            <div style='font-size: 11px; line-height: 1.4; color: gray; text-align: justify;'>
+                <b>MIỄN TRỪ TRÁCH NHIỆM:</b><br>
+                Website này và các công cụ tính toán đi kèm được cung cấp chỉ nhằm mục đích thông tin và tham khảo. 
+                Nhà phát triển (@Hai.PT) không đưa ra bất kỳ cam kết nào về độ tin cậy của dữ liệu cho mục đích điều động tàu.
+                <br><br>
+                <b>GIỚI HẠN TRÁCH NHIỆM:</b><br>
+                Nhà phát triển không chịu trách nhiệm cho bất kỳ tổn thất hoặc tai nạn hàng hải nào (tàu cạn, va chạm...) 
+                phát sinh từ việc sử dụng thông tin này. Quyết định điều động tàu cuối cùng thuộc về Thuyền trưởng và Hoa tiêu trên tàu. 
+                Người dùng bắt buộc phải đối chiếu với bảng thủy triều chính thức (VMSA).
+                <br><br>
+                <i>Bằng việc sử dụng website này, bạn đồng ý chấp nhận mọi rủi ro và từ bỏ mọi quyền khiếu nại pháp lý đối với nhà phát triển.</i>
+            </div>
+        """, unsafe_allow_html=True)
+
 
 # ==========================================
 # KHU VỰC MAIN PAGE (BÊN PHẢI)
