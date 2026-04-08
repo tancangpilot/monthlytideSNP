@@ -16,9 +16,12 @@ def format_transit_time(mins):
     elif h > 0: return f"+{h}h"
     else: return f"+{m}'"
 
-# Thêm *args, **kwargs để tương thích hoàn hảo nếu app.py lỡ truyền biến vào
+# Dùng *args để chống lỗi văng App nếu file app.py lỡ truyền biến vào
 def render_tide_calc_tab(*args, **kwargs):
     if "tide_calc_run" not in st.session_state: st.session_state.tide_calc_run = False
+
+    # --- ĐÁNH DẤU TAB NÀY BẰNG MỘT ID ẨN ĐỂ CSS CHỈ TÁC ĐỘNG VÀO ĐÚNG TAB NÀY ---
+    st.markdown("<div id='tide-calc-marker'></div>", unsafe_allow_html=True)
 
     st.markdown("""
         <style>
@@ -26,71 +29,84 @@ def render_tide_calc_tab(*args, **kwargs):
         [data-testid="stMainBlockContainer"] div[role="radiogroup"] { gap: 20px !important; }
         .sub-table-header { text-align: center; background-color: #f0f2f6; padding: 4px; border-radius: 5px; margin-bottom: 5px; font-weight: bold; color: #1E90FF; font-size: 14px; border: 1px solid #ddd; }
         [data-testid="stDataFrame"] th > div, [data-testid="stDataFrame"] td > div { padding: 0 4px !important; }
-        /* Căn chỉnh checkbox ngang hàng text */
-        .stCheckbox { margin-top: 8px; }
+        
+        /* =======================================================
+           CÔNG NGHỆ RESPONSIVE CSS (THAY THẾ BOOTSTRAP)
+           ======================================================= */
+        
+        /* MẶC ĐỊNH (MOBILE < 768px): 
+           Ẩn hoàn toàn nhãn (Label) của các ô nhập liệu để tiết kiệm diện tích */
+        [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) label[data-testid="stWidgetLabel"] {
+            display: none !important;
+        }
+        
+        /* Căn chỉnh lại khoảng cách Checkbox do bị mất nhãn phía trên */
+        [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) .stCheckbox {
+            margin-top: 5px;
+        }
+        
+        /* MÀN HÌNH LỚN (PC, iPad ngang >= 768px): 
+           Hiện lại chữ và dùng Flexbox ép nằm ngang hàng thẳng lối */
+        @media (min-width: 768px) {
+            [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) label[data-testid="stWidgetLabel"] {
+                display: inline-block !important;
+                min-width: 60px !important;
+                margin-right: 10px !important;
+                margin-bottom: 0px !important;
+                padding-bottom: 0px !important;
+                color: #444 !important;
+                font-weight: bold !important;
+            }
+            
+            /* Lệnh ép các Input Box và nhãn nằm cùng trên một hàng ngang */
+            [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) div[data-testid="stSelectbox"], 
+            [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) div[data-testid="stDateInput"], 
+            [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) div[data-testid="stNumberInput"], 
+            [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) div[data-testid="stTimeInput"] {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+            }
+        }
         </style>
     """, unsafe_allow_html=True)
 
     config = st.session_state.config
     
-    # ==========================================
-    # 1. HƯỚNG VÀ TUYẾN (Nằm ngang hàng inline)
-    # ==========================================
-    c_lbl1, c_dir, c_lbl2, c_route = st.columns([0.35, 1.5, 0.35, 4])
-    
-    with c_lbl1: 
-        st.markdown("<div style='margin-top: 8px; font-weight: bold; color: #444;'>Hướng:</div>", unsafe_allow_html=True)
+    # 1. CHỌN HƯỚNG VÀ TUYẾN 
+    # Cứ gõ thẳng tên "Hướng:" và "Tuyến:" vào trong ngoặc kép, CSS sẽ tự động lo việc giấu ở Mobile và kéo ngang ở PC.
+    c_dir, c_route = st.columns([1, 2.5])
     with c_dir: 
-        direction = st.selectbox("Hướng", ["⬆️ Outbound (Đi ra)", "⬇️ Inbound (Đi vào)"], label_visibility="collapsed", on_change=reset_calc)
-        
-    with c_lbl2: 
-        st.markdown("<div style='margin-top: 8px; font-weight: bold; color: #444; text-align: right;'>Tuyến:</div>", unsafe_allow_html=True)
+        direction = st.selectbox("Hướng:", ["⬆️ Outbound (Đi ra)", "⬇️ Inbound (Đi vào)"], on_change=reset_calc)
     with c_route:
         routes = ["1. Cát Lái ➔ Lòng Tàu ➔ P0 VT", "2. Cát Lái ➔ Soài Rạp ➔ P0 SR (Hỗn hợp)", "3. TC Hiệp Phước ➔ Soài Rạp ➔ P0 SR"] if "Outbound" in direction else ["1. P0 VT ➔ Lòng Tàu ➔ Cát Lái", "2. P0 SR ➔ Soài Rạp ➔ TC Hiệp Phước"]
-        route_sel = st.selectbox("Tuyến", routes, label_visibility="collapsed", on_change=reset_calc)
+        route_sel = st.selectbox("Tuyến:", routes, on_change=reset_calc)
     
-    # ==========================================
-    # 2. HÀNG THÔNG TIN THỜI GIAN CHẠY (ETA)
-    # ==========================================
+    # 2. HÀNG THÔNG TIN ⏳ 
     wpts = ROUTE_MAP.get(route_sel, [])
     info_str = " &nbsp;|&nbsp; ".join([f"<span style='color:#1E90FF; font-weight:bold;'>{pt}</span>={format_transit_time(mins)}" for pt, mins in wpts])
     dir_text = "ĐI RA" if "Outbound" in direction else "ĐI VÀO"
     st.markdown(f"<div style='margin-top: 5px; margin-bottom: 8px; font-size: 14.5px; color: #444; background-color: #f0f2f6; padding: 8px 12px; border-radius: 5px; border-left: 4px solid #1E90FF;'><b>⏳ {dir_text}:</b> {info_str}</div>", unsafe_allow_html=True)
     
-    # ==========================================
-    # 3. KHU VỰC NHẬP LIỆU (Nằm ngang hàng inline)
-    # ==========================================
+    # 3. KHU VỰC NHẬP LIỆU
     with st.container(border=True):
-        c_lbl_d, c_date, c_lbl_dr, c_draft, c_check, c_lbl_t, c_time = st.columns([0.45, 1.2, 0.45, 0.9, 1.2, 0.4, 1])
-        
-        with c_lbl_d: 
-            st.markdown("<div style='margin-top: 8px; font-weight: bold; color: #444;'>Date:</div>", unsafe_allow_html=True)
-        with c_date: 
-            pob_date = st.date_input("POB Date", datetime.datetime.now(VN_TZ).date(), format="DD/MM/YYYY", label_visibility="collapsed", on_change=reset_calc)
-        
-        with c_lbl_dr: 
-            st.markdown("<div style='margin-top: 8px; font-weight: bold; color: #444; text-align: right;'>Draft:</div>", unsafe_allow_html=True)
-        with c_draft: 
-            draft = st.number_input("Draft (m)", min_value=0.0, value=9.5, step=0.1, label_visibility="collapsed", on_change=reset_calc)
-        
-        with c_check:
+        col1, col2, col3, col4 = st.columns([1, 0.8, 1, 1])
+        with col1: pob_date = st.date_input("Date:", datetime.datetime.now(VN_TZ).date(), format="DD/MM/YYYY", on_change=reset_calc)
+        with col2: draft = st.number_input("Draft:", min_value=0.0, value=9.5, step=0.1, on_change=reset_calc)
+        with col3:
+            st.write("") # Tạo khoảng đệm nhỏ để ô checkbox cân đối hơn trên Desktop
             is_single = st.checkbox("🎯 Check 1 giờ", value=False, on_change=reset_calc)
         
         pob_time = None
         if is_single:
-            with c_lbl_t: 
-                st.markdown("<div style='margin-top: 8px; font-weight: bold; color: #444; text-align: right;'>Giờ:</div>", unsafe_allow_html=True)
-            with c_time: 
-                pob_time = st.time_input("Giờ POB", get_rounded_time(), step=datetime.timedelta(minutes=30), label_visibility="collapsed", on_change=reset_calc)
-            st.markdown(f"<div style='margin-top: 15px; margin-bottom: 25px; background-color: #fff9db; padding: 8px 12px; border-radius: 5px; border-left: 5px solid #fcc419; color: #856404; font-size: 14px;'>💡 Hệ thống sẽ kiểm tra AN TOÀN cho POB: <b>{pob_time.strftime('%H:%M')}</b> và MỚN: <b>{draft}m</b>.</div>", unsafe_allow_html=True)
+            with col4: pob_time = st.time_input("Giờ:", get_rounded_time(), step=datetime.timedelta(minutes=30), on_change=reset_calc)
+            st.markdown(f"<div style='margin-top: 10px; margin-bottom: 25px; background-color: #fff9db; padding: 8px 12px; border-radius: 5px; border-left: 5px solid #fcc419; color: #856404; font-size: 14px;'>💡 Hệ thống kiểm tra AN TOÀN cho POB: <b>{pob_time.strftime('%H:%M')}</b> và MỚN: <b>{draft}m</b>.</div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div style='margin-top: 15px; margin-bottom: 25px; background-color: #fff9db; padding: 8px 12px; border-radius: 5px; border-left: 5px solid #fcc419; color: #856404; font-size: 14px;'>🤖 <b>Ghi chú:</b> Hệ thống tự động tìm tất cả giờ POB cho mớn nước <b>{draft}m</b>.</div>", unsafe_allow_html=True)
 
         if st.button("🚀 PROCESS", use_container_width=True, type="primary"): st.session_state.tide_calc_run = True
 
-    # ==========================================
-    # 4. HIỂN THỊ KẾT QUẢ VÀ WINDOW THAM KHẢO
-    # ==========================================
+    # 4. HIỂN THỊ KẾT QUẢ
     if st.session_state.get("tide_calc_run", False):
         db = load_all_tide_data()
         if db:
