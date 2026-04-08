@@ -88,7 +88,6 @@ def process_and_style_df(df, show_past_dates=False):
             styles.append(css)
         return styles
 
-    # --- ÉP MÀU VÀNG CHO BẢNG WINDOW CHÍNH ---
     styler = df.style.apply(style_row, axis=1).set_table_styles([
         {'selector': 'th', 'props': [('background-color', '#ffe699 !important'), ('color', '#111 !important')]}
     ])
@@ -99,8 +98,14 @@ def process_and_style_df(df, show_past_dates=False):
         return styler.hide_columns(["_dow", "_actual_date"])
 
 
-def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xlsx"):
-    if not os.path.exists(file_path): return None, f"Thiếu file {file_path}"
+# =====================================================================
+# HÀM 1: ĐỘI KHUÂN VÁC (BẬT CACHE TĂNG TỐC)
+# =====================================================================
+@st.cache_data(show_spinner=False)
+def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.xlsx"):
+    if not os.path.exists(file_path): 
+        st.error(f"Thiếu file {file_path}")
+        return None
     
     groups = {"LÒNG TÀU": ["HL27", "HL21", "HL6"], "SOÀI RẠP": ["VL", "TCHP", "BB"]}
     points = groups[group_mode]
@@ -170,14 +175,23 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
                         
                 final_list.append(res_row)
                 
-    except Exception as e: return None, f"Lỗi hệ thống: {e}"
+    except Exception as e: 
+        st.error(f"Lỗi hệ thống: {e}")
+        return None
 
-    if not final_list: return None, "Không tìm thấy dữ liệu."
+    if not final_list: return None
     
     df_res = pd.DataFrame(final_list).sort_values(by=["_sort", "Point"])
     mask = df_res['Date'].duplicated()
     df_res.loc[mask, 'Date'] = ""
     
+    return df_res
+
+
+# =====================================================================
+# HÀM 2: ĐỘI TRANG ĐIỂM (BÔI MÀU THỨ 7, CHỦ NHẬT)
+# =====================================================================
+def style_max_draft_table(df_res):
     def style_sum(row):
         bg = ""
         if str(row.get('Date', '')).strip() != "":
@@ -189,12 +203,11 @@ def get_max_draft_summary(group_mode, month_sel, config, file_path="data_tide.xl
         css = bg + "font-size: 20px; "
         return [css] * len(row)
 
-    # --- ÉP MÀU VÀNG BẢNG MAX DRAFT ---
     styler = df_res.style.apply(style_sum, axis=1).set_table_styles([
         {'selector': 'th', 'props': [('background-color', '#ffe699 !important'), ('color', '#111 !important')]}
     ])
     
     if hasattr(styler, "hide"):
-        return styler.hide(subset=["_dow", "_sort"], axis="columns"), None
+        return styler.hide(subset=["_dow", "_sort"], axis="columns")
     else:
-        return styler.hide_columns(["_dow", "_sort"]), None
+        return styler.hide_columns(["_dow", "_sort"])
