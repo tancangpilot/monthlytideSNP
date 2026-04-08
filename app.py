@@ -90,8 +90,18 @@ st.markdown("""
         #hai-custom-menu-btn:hover { padding-left: 15px !important; background-color: #0056b3 !important; }
         @keyframes pulseMenu { 0% { box-shadow: 0 0 0 0 rgba(30,144,255,0.7); } 70% { box-shadow: 0 0 0 10px rgba(30,144,255,0); } 100% { box-shadow: 0 0 0 0 rgba(30,144,255,0); } }
         
-        /* TÀNG HÌNH VĨNH VIỄN NÚT TRƯỢT MẶC ĐỊNH CỦA STREAMLIT ĐỂ KHÔNG BỊ CHỒNG LÊN NHAU */
-        [data-testid="collapsedControl"], header[data-testid="stHeader"] > div:first-child { opacity: 0 !important; pointer-events: none !important; }
+        /* TÀNG HÌNH NÚT TRƯỢT MẶC ĐỊNH CỦA STREAMLIT NHƯNG BẢO VỆ MENU 3 CHẤM BÊN PHẢI */
+        [data-testid="collapsedControl"], 
+        [data-testid="stSidebarCollapsedControl"] { 
+            opacity: 0 !important; pointer-events: none !important; 
+        }
+        
+        /* GIẤU NÚT MENU CUSTOM KHI BẬT CHẾ ĐỘ IN ẤN (CTRL + P) */
+        @media print {
+            #hai-custom-menu-btn {
+                display: none !important;
+            }
+        }
     </style>
 """, unsafe_allow_html=True)
 
