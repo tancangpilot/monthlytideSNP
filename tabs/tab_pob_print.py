@@ -15,7 +15,7 @@ def render_pob_print_tab():
     with col_opt1:
         show_30 = st.checkbox("⏱️ Hiển thị mốc 30 phút", value=True)
     with col_opt2:
-        print_mode = st.toggle("🖨️ BẬT CHẾ ĐỘ IN PDF (Ép ngang A4 & Chống cắt trang)", value=False)
+        print_mode = st.toggle("🖨️ BẬT CHẾ ĐỘ IN PDF (Landscape-A4)", value=False)
 
     st.markdown("<hr style='margin: 5px 0 15px 0;'>", unsafe_allow_html=True)
 
@@ -112,10 +112,13 @@ def render_pob_print_tab():
             @page {{ size: A4 landscape; margin: 8mm; }}
             [data-testid="stSidebar"], header, .stSelectbox, .stDateInput, .stCheckbox, .stToggle, .stRadio {{ display: none !important; }}
             .stApp {{ background-color: white !important; }}
+            /* Triệt tiêu khoảng trắng thừa trang 1 */
+            .block-container {{ margin-top: 0px !important; padding-top: 0px !important; }}
         }}
         .custom-table {{ width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; text-align: center; table-layout: fixed; }}
-        .custom-table th {{ background-color: #ffe699 !important; border: 1px solid #333; padding: 2px 0px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-        .custom-table td {{ border: 1px solid #555; padding: 3px 0px; font-size: 10.5px; letter-spacing: -0.4px; color: #111; }}
+        /* Cấm rớt dòng ở th và td */
+        .custom-table th {{ background-color: #ffe699 !important; border: 1px solid #333; padding: 2px 0px; -webkit-print-color-adjust: exact; print-color-adjust: exact; white-space: nowrap !important; }}
+        .custom-table td {{ border: 1px solid #555; padding: 3px 0px; font-size: 10.5px; letter-spacing: -0.4px; color: #111; white-space: nowrap !important; }}
         .tbody-day-group {{ page-break-inside: avoid; border-bottom: 2.5px solid #111; }}
         .max-row {{ background-color: #ffff00 !important; font-weight: bold; color: #d93025 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-top: 1.5px solid #333; }}
         </style>

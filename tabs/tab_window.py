@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from utils.data_processor import process_and_style_df
+import streamlit.components.v1 as components
 
 def render_window_tab(file_path, sheet_name, disclaimer_text):
     
@@ -61,14 +62,28 @@ def render_window_tab(file_path, sheet_name, disclaimer_text):
     @page {{ size: A4 portrait; margin: 10mm; }}
     [data-testid="stSidebar"], header, .stToggle, .stCheckbox, .stRadio {{ display: none !important; }}
     .stApp {{ background-color: white !important; }}
+    
+    /* Cắt triệt để khoảng trắng thừa ở trang 1 */
+    .block-container {{ margin-top: 0px !important; padding-top: 0px !important; }}
 }}
 
-.print-window {{ width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; text-align: center; margin-top: 5px; }}
+/* ==========================================
+   CẤU HÌNH BẢNG IN CHỐNG GÃY TRANG 
+   ========================================== */
+.print-window {{ 
+    width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; text-align: center; margin-top: 5px; 
+}}
+
+/* Lặp lại dải băng Tiêu đề cột ở đầu mỗi trang mới */
+.print-window thead {{
+    display: table-header-group !important;
+}}
 
 .print-window th, .print-window td {{ 
     border: 1px solid #444 !important; 
     padding: 5px 2px !important; 
     font-size: 11.5px !important; 
+    white-space: nowrap !important; /* Chống rớt chữ các con số */
 }}
 
 .print-window th {{ 
@@ -90,6 +105,48 @@ def render_window_tab(file_path, sheet_name, disclaimer_text):
 {html_table}
 """
                 st.markdown(html_content, unsafe_allow_html=True)
+                
+                # --- JAVASCRIPT: PHẪU THUẬT NHÓM NGÀY ĐỂ CHỐNG XÉ LẺ BẢN IN ---
+                components.html("""
+                <script>
+                    const doc = window.parent.document;
+                    let attempts = 0;
+                    const interval = setInterval(() => {
+                        const table = doc.querySelector('.print-window:not(.grouped)');
+                        if (table) {
+                            table.classList.add('grouped');
+                            const tbody = table.querySelector('tbody');
+                            if (tbody) {
+                                const rows = Array.from(tbody.querySelectorAll('tr'));
+                                let currentTbody = null;
+                                rows.forEach(row => {
+                                    const firstCell = row.querySelector('td');
+                                    // Bắt tín hiệu: Nếu ô đầu tiên có chứa text (Ngày) -> Tạo 1 cái bọc tbody mới!
+                                    if (firstCell && firstCell.textContent.trim().length > 0) {
+                                        currentTbody = doc.createElement('tbody');
+                                        // Khóa cứng: Ép máy in không được xé lẻ cái bọc này
+                                        currentTbody.style.setProperty('page-break-inside', 'avoid', 'important');
+                                        currentTbody.style.setProperty('break-inside', 'avoid', 'important');
+                                        // Thêm dòng kẻ đậm phân cách giữa các ngày cho dễ nhìn
+                                        currentTbody.style.setProperty('border-bottom', '2.5px solid #111', 'important');
+                                        table.appendChild(currentTbody);
+                                    }
+                                    if (currentTbody) {
+                                        currentTbody.appendChild(row);
+                                    }
+                                });
+                                // Hủy cái bọc mặc định rỗng tuếch của Pandas
+                                if (tbody.children.length === 0) {
+                                    tbody.remove();
+                                }
+                            }
+                            clearInterval(interval);
+                        }
+                        attempts++;
+                        if (attempts > 10) clearInterval(interval); // Dừng thử sau 2 giây nếu không có bảng
+                    }, 200);
+                </script>
+                """, height=0, width=0)
 
             else:
                 # CHẾ ĐỘ WEB
