@@ -43,15 +43,13 @@ def update_url_params():
     st.query_params["tab"] = TAB_MAP[st.session_state.active_tab_key]
 
 # =====================================================================
-# CSS ĐỘ GIAO DIỆN HÀNG HIỆU
+# 1. CSS GIAO DIỆN CHUNG & NÚT ĐÓNG BÊN TRONG (TRÒN TRẮNG)
 # =====================================================================
 st.markdown("""
     <style>
-    /* 1. Header & Container */
     header[data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; border-bottom: none !important; height: 3rem !important; }
     .block-container { padding-top: 0rem !important; margin-top: 1.5rem !important; padding-bottom: 0rem !important; padding-left: 2rem !important; padding-right: 2rem !important; }
 
-    /* 2. Menu Radio Hàng Hiệu */
     [data-testid="stSidebar"] [data-testid="stRadio"] { margin-top: -20px !important; }
     [data-testid="stSidebar"] [data-testid="stRadio"] label { padding-top: 2px !important; padding-bottom: 2px !important; }
     [data-testid="stSidebar"] h3 { margin-top: -10px !important; margin-bottom: 5px !important; font-size: 1.1rem !important; }
@@ -64,82 +62,85 @@ st.markdown("""
         border: 2px solid #1E90FF !important; background-color: #f0f8ff !important;
     }
 
-    /* 3. Bảng và Form Input */
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th { font-size: 20px !important; }
     [data-testid="stDataFrame"] th { background-color: #ffe699 !important; color: #111 !important; }
     .stDateInput div[data-baseweb="input"], .stTimeInput div[data-baseweb="input"], .stNumberInput div[data-baseweb="input"] { font-size: 20px !important; }
     .stMarkdown p, label { font-size: 18px !important; }
 
-    /* =======================================================
-       4. NÚT ĐÓNG BÊN TRONG SIDEBAR (TRÒN TRẮNG)
-       ======================================================= */
-    [data-testid="stSidebar"] button[kind="header"] { 
-        background-color: #ffffff !important; 
-        border: 1px solid #1E90FF !important; 
-        border-radius: 50% !important; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important; 
-        z-index: 999999 !important;
+    /* --- NÚT ĐÓNG TRÒN TRẮNG AN TOÀN --- */
+    [data-testid="stSidebarCollapseButton"] { 
+        background-color: #ffffff !important; border: 2px solid #1E90FF !important; border-radius: 50% !important; box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important; z-index: 999999 !important; 
     }
-
-    /* =======================================================
-       5. NÚT MỞ BÊN NGOÀI (TAB XANH NHỊP TIM ĐẬP)
-       ======================================================= */
-    /* Xác định chính xác vùng chứa nút MỞ góc trái */
-    [data-testid="collapsedControl"] {
-        position: fixed !important;
-        top: 15px !important;
-        left: 0px !important;
-        z-index: 999999 !important;
-    }
-
-    /* Đúc khuôn Tab xanh bo góc */
-    [data-testid="collapsedControl"] button {
-        background-color: #1E90FF !important; 
-        border: none !important;
-        border-radius: 0 8px 8px 0 !important; 
-        padding: 5px 8px 5px 2px !important;
-        box-shadow: 3px 2px 10px rgba(30, 144, 255, 0.4) !important;
-        transition: all 0.3s ease !important;
-        animation: pulseMenu 2s infinite !important; 
-    }
-    
-    /* Đổi màu Icon Mũi Tên (>>) thành Trắng tinh */
-    [data-testid="collapsedControl"] button svg {
-        color: white !important;
-        fill: white !important;
-        width: 22px !important;
-        height: 22px !important;
-    }
-    
-    /* Đẩy nhẹ ra khi rê chuột */
-    [data-testid="collapsedControl"] button:hover {
-        background-color: #0056b3 !important;
-        padding-left: 10px !important; 
-    }
-    
-    /* Hiệu ứng nhịp tim (Pulse) tỏa sóng */
-    @keyframes pulseMenu {
-        0% { box-shadow: 0 0 0 0 rgba(30, 144, 255, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(30, 144, 255, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(30, 144, 255, 0); }
-    }
+    [data-testid="stSidebarCollapseButton"] svg { color: #1E90FF !important; fill: #1E90FF !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# JS AUTO CLOSE
+# =====================================================================
+# 2. TUYỆT CHIÊU "VE SẦU THOÁT XÁC": TỰ TẠO TAB MENU XANH LÈ BÊN TRÁI
+# =====================================================================
+st.markdown("""
+    <div id="hai-custom-menu-btn" style="position: fixed; top: 15px; left: 0px; background-color: #1E90FF; color: white; padding: 8px 12px 8px 5px; border-radius: 0 8px 8px 0; cursor: pointer; z-index: 999999; box-shadow: 3px 2px 10px rgba(30, 144, 255, 0.4); display: flex; align-items: center; gap: 4px; font-size: 14px; font-weight: bold; transition: all 0.3s ease;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+        MENU
+    </div>
+    
+    <style>
+        /* Hiệu ứng đập nhịp tim và trượt ra cho Nút Menu của chúng ta */
+        #hai-custom-menu-btn { animation: pulseMenu 2s infinite; }
+        #hai-custom-menu-btn:hover { padding-left: 15px !important; background-color: #0056b3 !important; }
+        @keyframes pulseMenu { 0% { box-shadow: 0 0 0 0 rgba(30,144,255,0.7); } 70% { box-shadow: 0 0 0 10px rgba(30,144,255,0); } 100% { box-shadow: 0 0 0 0 rgba(30,144,255,0); } }
+        
+        /* TÀNG HÌNH VĨNH VIỄN NÚT TRƯỢT MẶC ĐỊNH CỦA STREAMLIT ĐỂ KHÔNG BỊ CHỒNG LÊN NHAU */
+        [data-testid="collapsedControl"], header[data-testid="stHeader"] > div:first-child { opacity: 0 !important; pointer-events: none !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+# =====================================================================
+# 3. JS: ĐIỀU KHIỂN NÚT CUSTOM & TỰ ĐỘNG ĐÓNG SIDEBAR
+# =====================================================================
 components.html("""<script>
-    const doc = window.parent.document; let isOpen = false; let autoCloseTimer = null; let timeLeft = 60;
+    const doc = window.parent.document; 
+    let isOpen = false; 
+    let autoCloseTimer = null; 
+    
     setInterval(() => {
-        const sidebar = doc.querySelector('[data-testid="stSidebar"]'); if (!sidebar) return;
-        const isExpanded = sidebar.getAttribute('aria-expanded') === 'true';
+        const sidebar = doc.querySelector('[data-testid="stSidebar"]'); 
+        const isExpanded = sidebar ? sidebar.getAttribute('aria-expanded') === 'true' : false;
+        
+        // --- CHUYÊN TRÁCH ĐIỀU KHIỂN CHIẾC TAB XANH "MENU" ---
+        const customBtn = doc.getElementById('hai-custom-menu-btn');
+        if (customBtn) {
+            // Nếu Sidebar đang mở -> Giấu nút xanh đi. Nếu đóng -> Hiện nút xanh ra
+            customBtn.style.display = isExpanded ? 'none' : 'flex';
+            
+            // Lắng nghe cú click của ông Hai
+            if (!customBtn.hasAttribute('data-bound')) {
+                customBtn.setAttribute('data-bound', 'true');
+                customBtn.addEventListener('click', () => {
+                    // Khi bấm nút xanh -> Tự động đánh lừa Streamlit bấm nút tàng hình của nó
+                    const realBtn = doc.querySelector('[data-testid="collapsedControl"] button') || 
+                                    doc.querySelector('header[data-testid="stHeader"] > div:first-child button') || 
+                                    doc.querySelector('button[kind="header"]');
+                    if (realBtn) realBtn.click();
+                });
+            }
+        }
+
+        // --- CHUYÊN TRÁCH TỰ ĐỘNG ĐÓNG SIDEBAR (GIỮ NGUYÊN BẢN CHUẨN) ---
         const cd = doc.getElementById('sidebar-countdown');
         if (isExpanded && !isOpen) {
-            isOpen = true; timeLeft = 60; if (cd) cd.innerText = `Auto hide: ${timeLeft}s`;
+            isOpen = true; let timeLeft = 60; if (cd) cd.innerText = `Auto hide: ${timeLeft}s`;
             autoCloseTimer = setInterval(() => {
                 timeLeft -= 1; if (cd) cd.innerText = `Auto hide: ${timeLeft}s`;
-                if (timeLeft <= 0) { clearInterval(autoCloseTimer); if (cd) cd.innerText = ""; const btn = doc.querySelector('[data-testid="stSidebarCollapseButton"]') || doc.querySelector('button[aria-label="Collapse sidebar"]') || doc.querySelector('button[kind="header"]'); if (btn) btn.click(); }
+                if (timeLeft <= 0) { 
+                    clearInterval(autoCloseTimer); if (cd) cd.innerText = ""; 
+                    const closeBtn = doc.querySelector('[data-testid="stSidebarCollapseButton"]'); 
+                    if (closeBtn) closeBtn.click(); 
+                }
             }, 1000);
-        } else if (!isExpanded && isOpen) { isOpen = false; clearInterval(autoCloseTimer); if (cd) cd.innerText = ""; }
+        } else if (!isExpanded && isOpen) { 
+            isOpen = false; clearInterval(autoCloseTimer); if (cd) cd.innerText = ""; 
+        }
     }, 500);
 </script>""", height=0, width=0)
 
