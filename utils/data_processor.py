@@ -64,27 +64,31 @@ def process_and_style_df(df, show_past_dates=False):
 
     def style_row(row):
         styles = []
+        # Chuyển đổi logic: Dựa vào _dow để tô màu nguyên khối ngày
+        day_idx = row.get('_dow', -1)
         bg = ""
-        if 'Date' in row and str(row['Date']).strip() != "": 
-            day_idx = row.get('_dow', -1)
-            if day_idx == 5: bg = "background-color: rgba(255, 99, 71, 0.25);"
-            elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
-            else: bg = "background-color: rgba(50, 150, 250, 0.15);"
         
-        base_css = bg + "font-size: 22px; " 
+        # Chỉ tô màu cho Thứ 7 và Chủ Nhật (Window Cát Lái/Cái Mép)
+        if day_idx == 5: # Thứ 7
+            bg = "background-color: rgba(255, 99, 71, 0.25);"
+        elif day_idx == 6: # Chủ Nhật
+            bg = "background-color: rgba(255, 0, 0, 0.35);"
+        # Ngày thường (Thứ 2 - Thứ 6) để trống để có màu trắng mặc định
+        
+        base_css = bg + "font-size: 15px; " # Đã giảm cỡ chữ cho dễ nhìn trên web
         
         for col_name, val in row.items():
             css = base_css 
             val_str = str(val)
             if 'Dir' in str(col_name):
-                if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 18px;"
-                elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 18px;"
+                if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 17px;"
+                elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 17px;"
             elif 'Port' in str(col_name) or '-P' in str(col_name):
-                css += "color: #ff4d4d; font-weight: bold;" 
+                css += "color: #ff4d4d; font-weight: bold;"
             elif 'Stb' in str(col_name) or 'Starboard' in str(col_name):
-                css += "color: #00cc00; font-weight: bold;" 
+                css += "color: #00cc00; font-weight: bold;"
             elif 'UB' in str(col_name) or ' B' in str(col_name):
-                css += "font-weight: bold;" 
+                css += "font-weight: bold;"
             styles.append(css)
         return styles
 
@@ -98,9 +102,6 @@ def process_and_style_df(df, show_past_dates=False):
         return styler.hide_columns(["_dow", "_actual_date"])
 
 
-# =====================================================================
-# HÀM 1: ĐỘI KHUÂN VÁC (BẬT CACHE TĂNG TỐC)
-# =====================================================================
 @st.cache_data(show_spinner=False)
 def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.xlsx"):
     if not os.path.exists(file_path): 
@@ -162,7 +163,6 @@ def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.x
                     if dt < today or dt.month != today.month: continue
 
                 res_row = {"Date": dt.strftime("%d/%m"), "Point": p, "_dow": dt.dayofweek, "_sort": dt}
-                
                 for h in range(24):
                     h_col = f"{h:02d}"
                     if (h + 2) < len(row): tide_val = pd.to_numeric(row[h+2], errors='coerce')
@@ -187,20 +187,15 @@ def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.x
     
     return df_res
 
-
-# =====================================================================
-# HÀM 2: ĐỘI TRANG ĐIỂM (BÔI MÀU THỨ 7, CHỦ NHẬT)
-# =====================================================================
 def style_max_draft_table(df_res):
     def style_sum(row):
+        day_idx = row.get("_dow", -1)
         bg = ""
-        if str(row.get('Date', '')).strip() != "":
-            day_idx = row.get("_dow", -1)
-            if day_idx == 5: bg = "background-color: rgba(255, 99, 71, 0.25);"
-            elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
-            else: bg = "background-color: rgba(50, 150, 250, 0.15);"
+        if day_idx == 5: bg = "background-color: rgba(255, 99, 71, 0.25);"
+        elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
+        else: bg = "background-color: rgba(50, 150, 250, 0.15);"
         
-        css = bg + "font-size: 20px; "
+        css = bg + "font-size: 13px; " # Giảm 1px cho Max Draft Table như ông yêu cầu
         return [css] * len(row)
 
     styler = df_res.style.apply(style_sum, axis=1).set_table_styles([
