@@ -16,11 +16,9 @@ def format_transit_time(mins):
     elif h > 0: return f"+{h}h"
     else: return f"+{m}'"
 
-# Dùng *args để chống lỗi văng App nếu file app.py lỡ truyền biến vào
 def render_tide_calc_tab(*args, **kwargs):
     if "tide_calc_run" not in st.session_state: st.session_state.tide_calc_run = False
 
-    # --- ĐÁNH DẤU TAB NÀY BẰNG MỘT ID ẨN ĐỂ CSS CHỈ TÁC ĐỘNG VÀO ĐÚNG TAB NÀY ---
     st.markdown("<div id='tide-calc-marker'></div>", unsafe_allow_html=True)
 
     st.markdown("""
@@ -30,42 +28,24 @@ def render_tide_calc_tab(*args, **kwargs):
         .sub-table-header { text-align: center; background-color: #f0f2f6; padding: 4px; border-radius: 5px; margin-bottom: 5px; font-weight: bold; color: #1E90FF; font-size: 14px; border: 1px solid #ddd; }
         [data-testid="stDataFrame"] th > div, [data-testid="stDataFrame"] td > div { padding: 0 4px !important; }
         
-        /* =======================================================
-           CÔNG NGHỆ RESPONSIVE CSS (THAY THẾ BOOTSTRAP)
-           ======================================================= */
-        
-        /* MẶC ĐỊNH (MOBILE < 768px): 
-           Ẩn hoàn toàn nhãn (Label) của các ô nhập liệu để tiết kiệm diện tích */
         [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) label[data-testid="stWidgetLabel"] {
             display: none !important;
         }
         
-        /* Căn chỉnh lại khoảng cách Checkbox do bị mất nhãn phía trên */
         [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) .stCheckbox {
             margin-top: 5px;
         }
         
-        /* MÀN HÌNH LỚN (PC, iPad ngang >= 768px): 
-           Hiện lại chữ và dùng Flexbox ép nằm ngang hàng thẳng lối */
         @media (min-width: 768px) {
             [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) label[data-testid="stWidgetLabel"] {
-                display: inline-block !important;
-                min-width: 60px !important;
-                margin-right: 10px !important;
-                margin-bottom: 0px !important;
-                padding-bottom: 0px !important;
-                color: #444 !important;
-                font-weight: bold !important;
+                display: inline-block !important; min-width: 60px !important; margin-right: 10px !important; margin-bottom: 0px !important; padding-bottom: 0px !important; color: #444 !important; font-weight: bold !important;
             }
             
-            /* Lệnh ép các Input Box và nhãn nằm cùng trên một hàng ngang */
             [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) div[data-testid="stSelectbox"], 
             [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) div[data-testid="stDateInput"], 
             [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) div[data-testid="stNumberInput"], 
             [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) div[data-testid="stTimeInput"] {
-                display: flex !important;
-                flex-direction: row !important;
-                align-items: center !important;
+                display: flex !important; flex-direction: row !important; align-items: center !important;
             }
         }
         </style>
@@ -73,8 +53,6 @@ def render_tide_calc_tab(*args, **kwargs):
 
     config = st.session_state.config
     
-    # 1. CHỌN HƯỚNG VÀ TUYẾN 
-    # Cứ gõ thẳng tên "Hướng:" và "Tuyến:" vào trong ngoặc kép, CSS sẽ tự động lo việc giấu ở Mobile và kéo ngang ở PC.
     c_dir, c_route = st.columns([1, 2.5])
     with c_dir: 
         direction = st.selectbox("Hướng:", ["⬆️ Outbound (Đi ra)", "⬇️ Inbound (Đi vào)"], on_change=reset_calc)
@@ -82,19 +60,17 @@ def render_tide_calc_tab(*args, **kwargs):
         routes = ["1. Cát Lái ➔ Lòng Tàu ➔ P0 VT", "2. Cát Lái ➔ Soài Rạp ➔ P0 SR (Hỗn hợp)", "3. TC Hiệp Phước ➔ Soài Rạp ➔ P0 SR"] if "Outbound" in direction else ["1. P0 VT ➔ Lòng Tàu ➔ Cát Lái", "2. P0 SR ➔ Soài Rạp ➔ TC Hiệp Phước"]
         route_sel = st.selectbox("Tuyến:", routes, on_change=reset_calc)
     
-    # 2. HÀNG THÔNG TIN ⏳ 
     wpts = ROUTE_MAP.get(route_sel, [])
     info_str = " &nbsp;|&nbsp; ".join([f"<span style='color:#1E90FF; font-weight:bold;'>{pt}</span>={format_transit_time(mins)}" for pt, mins in wpts])
     dir_text = "ĐI RA" if "Outbound" in direction else "ĐI VÀO"
     st.markdown(f"<div style='margin-top: 5px; margin-bottom: 8px; font-size: 14.5px; color: #444; background-color: #f0f2f6; padding: 8px 12px; border-radius: 5px; border-left: 4px solid #1E90FF;'><b>⏳ {dir_text}:</b> {info_str}</div>", unsafe_allow_html=True)
     
-    # 3. KHU VỰC NHẬP LIỆU
     with st.container(border=True):
         col1, col2, col3, col4 = st.columns([1, 0.8, 1, 1])
         with col1: pob_date = st.date_input("Date:", datetime.datetime.now(VN_TZ).date(), format="DD/MM/YYYY", on_change=reset_calc)
         with col2: draft = st.number_input("Draft:", min_value=0.0, value=9.5, step=0.1, on_change=reset_calc)
         with col3:
-            st.write("") # Tạo khoảng đệm nhỏ để ô checkbox cân đối hơn trên Desktop
+            st.write("") 
             is_single = st.checkbox("🎯 Check 1 giờ", value=False, on_change=reset_calc)
         
         pob_time = None
@@ -106,7 +82,6 @@ def render_tide_calc_tab(*args, **kwargs):
 
         if st.button("🚀 PROCESS", use_container_width=True, type="primary"): st.session_state.tide_calc_run = True
 
-    # 4. HIỂN THỊ KẾT QUẢ
     if st.session_state.get("tide_calc_run", False):
         db = load_all_tide_data()
         if db:
@@ -146,7 +121,23 @@ def render_tide_calc_tab(*args, **kwargs):
                     win_df = get_window_cl_for_date(d)
                     if win_df is not None:
                         vis_cols = [c for c in win_df.columns if c not in ["_dow", "_actual_date", "Date"]]
-                        col_cfg = { "Dir": st.column_config.TextColumn("Dir", width=40), "Level": st.column_config.TextColumn("Level", width=45), "Slack": st.column_config.TextColumn("Slack", width=60), "VungTau": st.column_config.TextColumn("VT", width=45), "DongNai": st.column_config.TextColumn("DN", width=45), "SaiGon": st.column_config.TextColumn("SG", width=45) }
-                        st.dataframe(win_df, use_container_width=False, hide_index=True, height=280, column_config=col_cfg, column_order=vis_cols)
+                        
+                        # BỘ NÉN TIÊU ĐỀ: Ép cứng tên các cột cơ bản ngắn gọn nhất
+                        col_cfg = { 
+                            "Dir": st.column_config.TextColumn("Dir", width=35), 
+                            "Level": st.column_config.TextColumn("Lvl", width=35), 
+                            "Slack": st.column_config.TextColumn("Slk", width=40), 
+                            "VungTau": st.column_config.TextColumn("VT", width=40), 
+                            "DongNai": st.column_config.TextColumn("DN", width=40), 
+                            "SaiGon": st.column_config.TextColumn("SG", width=40) 
+                        }
+                        
+                        # Vòng lặp quét các cột cảng (B.UB-Stb...) và ép thành (B.UB-S)
+                        for c in vis_cols:
+                            if c not in col_cfg:
+                                short_name = c.replace("Begin ", "B.").replace("End ", "E.").replace("Starboard", "S").replace("Port", "P").replace("-Stb", "-S")
+                                col_cfg[c] = st.column_config.TextColumn(short_name, width=50, help="P: Port (Trái) | S: Starboard (Phải)")
+                        
+                        st.dataframe(win_df, use_container_width=True, hide_index=True, column_config=col_cfg, column_order=vis_cols)
                     else: st.caption("Không có dữ liệu")
     st.markdown("<br><div style='height: 50px;'></div>", unsafe_allow_html=True)

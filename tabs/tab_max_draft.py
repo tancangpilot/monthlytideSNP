@@ -1,5 +1,6 @@
 import streamlit as st
 import datetime
+import pandas as pd
 from utils.data_processor import get_max_draft_raw_data, style_max_draft_table
 import streamlit.components.v1 as components
 
@@ -7,10 +8,9 @@ def render_max_draft_tab():
     config = st.session_state.config
     
     # =================================================================
-    # 1. GIAO DIỆN CONTROL (1 Hàng duy nhất, không label thừa)
+    # 1. GIAO DIỆN CONTROL
     # =================================================================
     with st.container(border=True):
-        # Chia 3 cột: Sông (nhỏ) - Tháng (vừa) - Nút In (nhỏ)
         col1, col2, col_print = st.columns([2, 3, 1.5])
         
         with col1:
@@ -36,72 +36,73 @@ def render_max_draft_tab():
     # =================================================================
     with st.spinner("Đang tính toán số liệu..."):
         df_raw = get_max_draft_raw_data(config, grp, month_sel)
+        
         if df_raw is not None and not df_raw.empty:
+            
+            # -------------------------------------------------------------
+            # BỘ LỌC 1: CHẶN QUÁ KHỨ (NẾU CHỌN "MẶC ĐỊNH")
+            # -------------------------------------------------------------
+            if "Mặc định" in m_choice:
+                today = pd.Timestamp.today().normalize()
+                df_raw = df_raw[df_raw['_sort'] >= today].reset_index(drop=True)
+            
+            if not df_raw.empty:
+                # ---------------------------------------------------------
+                # BỘ LỌC 2: ÉP THỨ TỰ TRẠM CHUẨN XÁC 100%
+                # ---------------------------------------------------------
+                try:
+                    df_raw['_temp_date'] = df_raw['Date'].replace("", pd.NA).ffill()
+                    
+                    if grp == "LÒNG TÀU":
+                        sort_map = {"HL27": 1, "HL21": 2, "HL6": 3}
+                    else: # SOÀI RẠP
+                        sort_map = {"VL": 1, "TCHP": 2, "BB": 3}
+                        
+                    df_raw['_point_sort'] = df_raw['Point'].map(lambda x: sort_map.get(str(x).strip(), 99))
+                    
+                    day_order = {d: i for i, d in enumerate(df_raw['_temp_date'].dropna().unique())}
+                    df_raw['_day_idx'] = df_raw['_temp_date'].map(day_order)
+                    
+                    df_raw = df_raw.sort_values(by=['_day_idx', '_point_sort']).reset_index(drop=True)
+                    
+                    df_raw['Date'] = df_raw['_temp_date']
+                    df_raw.loc[df_raw.duplicated(subset=['_temp_date']), 'Date'] = ""
+                    
+                    df_raw = df_raw.drop(columns=['_temp_date', '_point_sort', '_day_idx'])
+                except Exception:
+                    pass 
+
+            if df_raw.empty:
+                st.warning("❌ Không có dữ liệu (có thể đã qua hết các ngày trong tháng).")
+                return
+
             styled_df = style_max_draft_table(df_raw)
             vis_cols = [c for c in styled_df.data.columns if c not in ["_dow", "_sort"]]
             
-            # --- PHÂN NHÁNH HIỂN THỊ (IN ẤN VS WEB) ---
+            # =========================================================
+            # PHÂN NHÁNH HIỂN THỊ (IN ẤN VS WEB NATIVE)
+            # =========================================================
             if print_mode:
-                html_table = styled_df.hide().set_table_attributes('class="print-max-draft"').to_html()
+                # GIAO DIỆN IN ẤN HTML (Giữ nguyên siêu nén)
+                styled_html = styled_df.hide(subset=["_dow", "_sort"], axis="columns").hide()
+                html_table = styled_html.set_table_attributes('class="print-max-draft"').to_html()
                 
                 html_content = f"""
 <style>
 @media print {{
     @page {{ size: A4 landscape; margin: 10mm; }}
-    
-    /* 1. TÀNG HÌNH CÁC THÀNH PHẦN STREAMLIT MẶC ĐỊNH */
     [data-testid="stSidebar"], header, hr {{ display: none !important; }}
-    
-    /* 2. XÓA SẠCH NỘI DUNG RUỘT CỦA CÁC CỘT CHỨA NÚT */
-    [data-testid="stHorizontalBlock"] {{ display: none !important; }}
-    .stSelectbox, .stToggle {{ display: none !important; }}
-    
-    /* 3. LỆNH HỦY DIỆT: ĐẬP VỠ MỌI VỎ HỘP TRỐNG (Bóng ma khung viền) */
-    div {{ 
-        border: none !important; 
-        box-shadow: none !important; 
-        background: transparent !important; 
-    }}
-    
-    /* Ép sập các class vỏ bọc của Streamlit xuống 0px */
-    div[class*="borderWrapper"], div[class*="BorderWrapper"] {{ 
-        display: none !important; 
-        padding: 0 !important; 
-        margin: 0 !important; 
-    }}
-    
+    [data-testid="stHorizontalBlock"], .stSelectbox, .stToggle {{ display: none !important; }}
+    div {{ border: none !important; box-shadow: none !important; background: transparent !important; }}
+    div[class*="borderWrapper"], div[class*="BorderWrapper"] {{ display: none !important; padding: 0 !important; margin: 0 !important; }}
     .stApp {{ background-color: white !important; }}
     .block-container {{ margin-top: 0px !important; padding-top: 0px !important; }}
 }}
-
-/* ==========================================
-   CẤU HÌNH BẢNG IN CHỐNG GÃY TRANG 
-   ========================================== */
-.print-max-draft {{ 
-    width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; text-align: center; margin-top: 0px; 
-}}
-
-/* Lặp tiêu đề cột khi sang trang mới */
+.print-max-draft {{ width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; text-align: center; margin-top: 5px; }}
 .print-max-draft thead {{ display: table-header-group !important; }}
-
-/* Ép nguyên khối 1 ngày sang trang, không cắt ngang */
 .print-max-draft tr {{ page-break-inside: avoid !important; break-inside: avoid !important; }}
-
-.print-max-draft th, .print-max-draft td {{ 
-    border: 1px solid #444 !important; 
-    padding: 5px 2px !important; 
-    font-size: 11.5px !important; 
-    white-space: nowrap !important; /* Chống rớt dòng các con số */
-}}
-
-.print-max-draft th {{ 
-    background-color: #ffe699 !important; 
-    color: #111 !important; 
-    font-weight: bold !important;
-    font-size: 12px !important;
-    -webkit-print-color-adjust: exact; 
-    print-color-adjust: exact; 
-}}
+.print-max-draft th, .print-max-draft td {{ border: 1px solid #444 !important; padding: 5px 2px !important; font-size: 11.5px !important; white-space: nowrap !important; }}
+.print-max-draft th {{ background-color: #ffe699 !important; color: #111 !important; font-weight: bold !important; font-size: 12px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
 </style>
 
 <div style='font-size: 18px; font-weight: bold; text-align: center; color: #111; margin-bottom: 8px; text-transform: uppercase;'>
@@ -111,11 +112,9 @@ def render_max_draft_tab():
 """
                 st.markdown(html_content, unsafe_allow_html=True)
                 
-                # JAVASCRIPT: Gom nhóm các dòng cùng 1 ngày thành 1 khối để in liền mạch
                 components.html("""
                 <script>
-                    const doc = window.parent.document;
-                    let attempts = 0;
+                    const doc = window.parent.document; let attempts = 0;
                     const interval = setInterval(() => {
                         const table = doc.querySelector('.print-max-draft:not(.grouped)');
                         if (table) {
@@ -132,22 +131,19 @@ def render_max_draft_tab():
                                         currentTbody.style.setProperty('border-bottom', '2.5px solid #111', 'important');
                                         table.appendChild(currentTbody);
                                     }
-                                    if (currentTbody) {
-                                        currentTbody.appendChild(row);
-                                    }
+                                    if (currentTbody) currentTbody.appendChild(row);
                                 });
                                 if (tbody.children.length === 0) tbody.remove();
                             }
                             clearInterval(interval);
                         }
-                        attempts++;
-                        if (attempts > 10) clearInterval(interval);
+                        attempts++; if (attempts > 10) clearInterval(interval);
                     }, 200);
                 </script>
                 """, height=0, width=0)
 
             else:
-                # GIAO DIỆN WEB: Cố định cột
+                # GIAO DIỆN WEB NATIVE: Trả về DataFrame thuần của Streamlit và khóa cột
                 col_cfg = {
                     "_dow": None, 
                     "_sort": None, 
