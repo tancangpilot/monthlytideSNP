@@ -34,7 +34,7 @@ TAB_MAP = {
 }
 REVERSE_MAP = {v: k for k, v in TAB_MAP.items()}
 
-st.set_page_config(page_title="Tide Schedule", page_icon="logoHTTC.png", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Tide Schedule", page_icon="logoHTTC.jpg", layout="wide", initial_sidebar_state="collapsed")
 
 if "active_tab_key" not in st.session_state:
     st.session_state.active_tab_key = REVERSE_MAP.get(st.query_params.get("tab", "tide_cl"), "🧭 Tide Calc CÁT LÁI")
@@ -79,8 +79,8 @@ st.markdown("""
 # 2. TUYỆT CHIÊU "VE SẦU THOÁT XÁC": TỰ TẠO TAB MENU XANH LÈ BÊN TRÁI
 # =====================================================================
 st.markdown("""
-    <div id="hai-custom-menu-btn" style="position: fixed; top: 15px; left: 0px; background-color: #1E90FF; color: white; padding: 8px 12px 8px 5px; border-radius: 0 8px 8px 0; cursor: pointer; z-index: 999999; box-shadow: 3px 2px 10px rgba(30, 144, 255, 0.4); display: flex; align-items: center; gap: 4px; font-size: 14px; font-weight: bold; transition: all 0.3s ease;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+    <div id="hai-custom-menu-btn" style="position: fixed; top: 15px; left: 0px; background-color: #1E90FF; color: white; padding: 5px 8px 5px 3px; border-radius: 0 6px 6px 0; cursor: pointer; z-index: 999999; box-shadow: 3px 2px 8px rgba(30, 144, 255, 0.4); display: flex; align-items: center; gap: 3px; font-size: 9px; font-weight: bold; transition: all 0.3s ease;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
         MENU
     </div>
     
@@ -183,7 +183,7 @@ with st.sidebar:
         <div style="margin-top: 15px;"></div>
         <hr style="margin: 8px 0 4px 0; border: 0; border-top: 1px solid #ddd;">
         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85em; line-height: 1.2;">
-            <span style="font-weight: bold;">V 1.35</span><span id="sidebar-countdown" style="color: #ff4b4b; font-weight: bold;"></span>
+            <span style="font-weight: bold;">V 1.38</span><span id="sidebar-countdown" style="color: #ff4b4b; font-weight: bold;"></span>
         </div>
         <div style="margin-top: 1px;"><i style="font-size: 0.75em; color: gray; display: block;">Built by @Hai.PT(NP44)</i></div>
         <hr style="margin: 4px 0 8px 0; border: 0; border-top: 1px solid #ddd;">
