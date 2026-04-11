@@ -9,6 +9,7 @@ from tabs.tab_admin import render_admin_page
 from tabs.tab_tide_calc import render_tide_calc_tab
 from tabs.tab_channel_info import render_channel_info_tab
 from tabs.tab_pob_print import render_pob_print_tab
+from tabs.tab_tide_calc_cm import render_tide_calc_cm_tab
 
 DATA_FILE = "data_window.xlsx"
 
@@ -43,31 +44,35 @@ def update_url_params():
     st.query_params["tab"] = TAB_MAP[st.session_state.active_tab_key]
 
 # =====================================================================
-# 1. CSS GIAO DIỆN CHUNG & NÚT ĐÓNG BÊN TRONG (TRÒN TRẮNG)
+# CSS ĐỘ GIAO DIỆN HÀNG HIỆU
 # =====================================================================
 st.markdown("""
     <style>
+    /* 1. Header & Container */
     header[data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; border-bottom: none !important; height: 3rem !important; }
     .block-container { padding-top: 0rem !important; margin-top: 1.5rem !important; padding-bottom: 0rem !important; padding-left: 2rem !important; padding-right: 2rem !important; }
 
+    /* 2. Menu Radio Hàng Hiệu */
     [data-testid="stSidebar"] [data-testid="stRadio"] { margin-top: -20px !important; }
     [data-testid="stSidebar"] [data-testid="stRadio"] label { padding-top: 2px !important; padding-bottom: 2px !important; }
     [data-testid="stSidebar"] h3 { margin-top: -10px !important; margin-bottom: 5px !important; font-size: 1.1rem !important; }
     [data-testid="stSidebar"] hr { margin-top: 8px !important; margin-bottom: 8px !important; }
     
-    [data-testid="stMainBlockContainer"] [data-testid="stRadio"] div[role="radiogroup"] label[data-baseweb="radio"] {
+    /* ---> ĐÃ SỬA LẠI ĐÚNG VỊ TRÍ SIDEBAR ĐỂ HIỆN KHUNG VIỀN <--- */
+    [data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label[data-baseweb="radio"] {
         padding: 8px 12px !important; border: 2px solid transparent !important; border-radius: 8px !important; margin-bottom: 2px; transition: all 0.2s ease;
     }
-    [data-testid="stMainBlockContainer"] [data-testid="stRadio"] div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) {
-        border: 2px solid #1E90FF !important; background-color: #f0f8ff !important;
+    [data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) {
+        border: 2px solid #1E90FF !important; background-color: #f0f8ff !important; box-shadow: 0 2px 5px rgba(30,144,255,0.1) !important;
     }
 
+    /* 3. Bảng và Form Input */
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th { font-size: 20px !important; }
     [data-testid="stDataFrame"] th { background-color: #ffe699 !important; color: #111 !important; }
     .stDateInput div[data-baseweb="input"], .stTimeInput div[data-baseweb="input"], .stNumberInput div[data-baseweb="input"] { font-size: 20px !important; }
     .stMarkdown p, label { font-size: 18px !important; }
 
-    /* --- NÚT ĐÓNG TRÒN TRẮNG AN TOÀN --- */
+    /* --- NÚT ĐÓNG BÊN TRONG SIDEBAR --- */
     [data-testid="stSidebarCollapseButton"] { 
         background-color: #ffffff !important; border: 2px solid #1E90FF !important; border-radius: 50% !important; box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important; z-index: 999999 !important; 
     }
@@ -216,7 +221,7 @@ if current_page == "🌊 Bảng thông tin":
     elif selected_tab == "🌊 Window CÁT LÁI": 
         render_window_tab(DATA_FILE, "WindowCL", "*The vessels: Draft > 10.0m or Departure outside Window must be advised by duty pilot.*")
     elif selected_tab == "🧭 Tide Calc CÁI MÉP": 
-        st.info("🚧 Chức năng Tide Calc CÁI MÉP đang được cập nhật!") 
+        render_tide_calc_cm_tab() 
     elif selected_tab == "🌊 Window CÁI MÉP": 
         render_window_tab(DATA_FILE, "WindowCM", ":red[*Window is calculated for vessels LOA ≤ 300m; Draft ≤ 12.5m; GRT ≤ 80.000. The vessels: Draft > 12.5m; LOA > 300m; GRT > 80.000 is advised by Duty Pilot.*]")
     elif selected_tab == "🖨️ POB Table": 
