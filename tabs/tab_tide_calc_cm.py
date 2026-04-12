@@ -28,18 +28,26 @@ def render_tide_calc_cm_tab():
 
     config = st.session_state.config
     
-    # 1. GIAO DIỆN TỐI GIẢN
+    # 1. GIAO DIỆN TỐI GIẢN (CHẾ ĐỘ LIVE MODE TỰ ĐỘNG LOAD)
     with st.container(border=True):
         col_date, col_action, col_btn = st.columns([1, 1.5, 1])
         with col_date:
-            pob_date = st.date_input("Ngày", datetime.datetime.now(VN_TZ).date(), format="DD/MM/YYYY", label_visibility="collapsed")
+            current_date = st.session_state.get("cm_date", datetime.datetime.now(VN_TZ).date())
+            pob_date = st.date_input("Ngày", current_date, format="DD/MM/YYYY", label_visibility="collapsed")
         with col_action:
-            action = st.radio("Hành động", ["CẬP BẾN (Berthing)", "RỜI BẾN (Unberthing)"], horizontal=True, label_visibility="collapsed")
+            action_options = ["CẬP BẾN (Berthing)", "RỜI BẾN (Unberthing)"]
+            current_action = st.session_state.get("cm_action", action_options[0])
+            idx = action_options.index(current_action) if current_action in action_options else 0
+            action = st.radio("Hành động", action_options, index=idx, horizontal=True, label_visibility="collapsed")
         with col_btn:
             if st.button("🚀 PROCESS", use_container_width=True, type="primary"):
                 st.session_state.tide_calc_cm_run = True
-                st.session_state.cm_date = pob_date
-                st.session_state.cm_action = action
+
+        # BÙA CHÚ AUTO-LOAD: Nếu hệ thống đã nổ máy (tide_calc_cm_run = True), 
+        # mọi thay đổi của Radio gạt mạn hoặc Đổi ngày sẽ tự động đồng bộ và load ngay lập tức!
+        if st.session_state.get("tide_calc_cm_run", False):
+            st.session_state.cm_date = pob_date
+            st.session_state.cm_action = action
 
     # 2. XỬ LÝ DỮ LIỆU CUỐN CHIẾU
     if st.session_state.get("tide_calc_cm_run", False):
