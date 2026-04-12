@@ -1,11 +1,13 @@
 import streamlit as st
 import datetime
 import pandas as pd
+import os
 from utils.tide_engine import load_all_tide_data, get_tide_at_eta, VN_TZ
 from utils.data_processor import process_and_style_df
 
+# GẮN CẢM BIẾN MTIME: Chỉ dùng cache khi file Excel không bị sửa đổi
 @st.cache_data(show_spinner=False)
-def load_cm_window_data():
+def load_cm_window_data(mtime):
     try:
         raw_win_df = pd.read_excel("data_window.xlsx", sheet_name="WindowCM")
         raw_win_df.columns = [str(c).strip() for c in raw_win_df.columns]
@@ -17,7 +19,6 @@ def load_cm_window_data():
         return None
 
 def render_tide_calc_cm_tab():
-    # CSS Thiết kế riêng cho CÁI MÉP
     st.markdown("""
         <style>
         .cm-day-header { text-align: center; font-size: 16px; font-weight: bold; color: #1E90FF; background-color: #f0f2f6; padding: 6px; border: 1px solid #ddd; border-radius: 5px; margin-top: 20px; margin-bottom: 10px; }
@@ -27,27 +28,21 @@ def render_tide_calc_cm_tab():
     """, unsafe_allow_html=True)
 
     config = st.session_state.config
-    
-    # 1. GIAO DIỆN TỐI GIẢN (CHẾ ĐỘ LIVE MODE TỰ ĐỘNG LOAD)
+
+    # HÀM BẮT VÍT TRỰC TIẾP: Ép hệ thống chạy ngay khi có bất kỳ thay đổi nào
+    def trigger_calc():
+        st.session_state.tide_calc_cm_run = True
+
+    # 1. GIAO DIỆN TỐI GIẢN (Live Mode Chống Lag)
     with st.container(border=True):
         col_date, col_action, col_btn = st.columns([1, 1.5, 1])
         with col_date:
-            current_date = st.session_state.get("cm_date", datetime.datetime.now(VN_TZ).date())
-            pob_date = st.date_input("Ngày", current_date, format="DD/MM/YYYY", label_visibility="collapsed")
+            st.date_input("Ngày", datetime.datetime.now(VN_TZ).date(), format="DD/MM/YYYY", label_visibility="collapsed", key="cm_date", on_change=trigger_calc)
         with col_action:
-            action_options = ["CẬP BẾN (Berthing)", "RỜI BẾN (Unberthing)"]
-            current_action = st.session_state.get("cm_action", action_options[0])
-            idx = action_options.index(current_action) if current_action in action_options else 0
-            action = st.radio("Hành động", action_options, index=idx, horizontal=True, label_visibility="collapsed")
+            st.radio("Hành động", ["CẬP BẾN (Berthing)", "RỜI BẾN (Unberthing)"], horizontal=True, label_visibility="collapsed", key="cm_action", on_change=trigger_calc)
         with col_btn:
             if st.button("🚀 PROCESS", use_container_width=True, type="primary"):
-                st.session_state.tide_calc_cm_run = True
-
-        # BÙA CHÚ AUTO-LOAD: Nếu hệ thống đã nổ máy (tide_calc_cm_run = True), 
-        # mọi thay đổi của Radio gạt mạn hoặc Đổi ngày sẽ tự động đồng bộ và load ngay lập tức!
-        if st.session_state.get("tide_calc_cm_run", False):
-            st.session_state.cm_date = pob_date
-            st.session_state.cm_action = action
+                trigger_calc()
 
     # 2. XỬ LÝ DỮ LIỆU CUỐN CHIẾU
     if st.session_state.get("tide_calc_cm_run", False):
@@ -60,7 +55,10 @@ def render_tide_calc_cm_tab():
         action_val = st.session_state.cm_action
         action_str = "CẬP BẾN" if "CẬP" in action_val else "RỜI BẾN"
         
-        raw_win_df = load_cm_window_data()
+        # Đọc thời gian sửa file thực tế để phá vỡ bẫy Cache
+        mtime = os.path.getmtime("data_window.xlsx") if os.path.exists("data_window.xlsx") else 0
+        raw_win_df = load_cm_window_data(mtime)
+        
         if raw_win_df is None:
             st.error("❌ Lỗi đọc file data_window.xlsx (sheet WindowCM).")
             return
@@ -84,6 +82,12 @@ def render_tide_calc_cm_tab():
             show_cols = base_cols + action_cols
             df_display = df_day[['_actual_date', 'Date'] + show_cols].copy()
             
+            # Reset Index để dọn sạch lỗi giao diện bảng của Streamlit
+            df_display = df_display.dropna(subset=action_cols, how='all').reset_index(drop=True)
+            if df_display.empty:
+                st.info(f"Không có dữ liệu {action_str} cho ngày này.")
+                continue
+            
             # IN BẢNG WINDOW
             styled_table = process_and_style_df(df_display, show_past_dates=True)
             col_cfg = { 
@@ -103,7 +107,7 @@ def render_tide_calc_cm_tab():
             day_draft_values = set()
             windows_data_to_render = []
             
-            # VÒNG QUÉT 1: Tính toán toàn bộ các block để tìm Max/Min
+            # VÒNG QUÉT 1: Tính toán khối mớn 30p
             for idx, row in valid_df.iterrows():
                 times = []
                 for c in action_cols:
@@ -175,16 +179,16 @@ def render_tide_calc_cm_tab():
                             f"nhỏ nhất là: <b>{', '.join([f'{v:.1f}' for v in min_3])}m</b><br>"
                             f"<i>(Ở bảng dưới chỉ hiển thị các mớn ≤ 15.0m)</i></div>", unsafe_allow_html=True)
             
-            # VÒNG QUÉT 2: Lọc bỏ mớn > 15.0 và in bảng
+            # VÒNG QUÉT 2: IN BẢNG MỚN
             for w_data in windows_data_to_render:
                 min_dt = w_data["min_dt"]
                 max_dt = w_data["max_dt"]
                 
-                # BỘ LỌC TÀN NHẪN: Chém sạch các mớn > 15.0
                 filtered_blocks = [item for item in w_data["blocks_data"] if item[1] <= 15.0]
                 
+                # NẾU TOÀN BỘ > 15.0m THÌ ẨN VÀ BÁO CÁO RÕ RÀNG ĐỂ ÔNG KHÔNG BỊ NHẦM LÀ LỖI BẢNG THIẾU
                 if not filtered_blocks:
-                    st.info(f"Khung window {min_dt.strftime('%H:%M')} ➔ {max_dt.strftime('%H:%M')} không có mớn nào ≤ 15.0m.")
+                    st.info(f"🚫 Khung window {min_dt.strftime('%H:%M')} ➔ {max_dt.strftime('%H:%M')} đã được hệ thống ẩn tự động vì toàn bộ mớn nước đều > 15.0m.")
                     continue
                     
                 st.markdown(f"<div class='cm-window-title'>Bảng mớn nước tàu {action_str} cho window: {min_dt.strftime('%H:%M')} ➔ {max_dt.strftime('%H:%M')}</div>", unsafe_allow_html=True)
