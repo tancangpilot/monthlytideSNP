@@ -4,9 +4,6 @@ import pandas as pd
 from utils.tide_engine import load_all_tide_data, get_tide_at_eta, VN_TZ
 from utils.data_processor import process_and_style_df
 
-# =====================================================================
-# BỘ ĐỆM CACHE: CHỈ ĐỌC EXCEL 1 LẦN RỒI LƯU VÀO RAM CHO TỐC ĐỘ BÀN THỜ
-# =====================================================================
 @st.cache_data(show_spinner=False)
 def load_cm_window_data():
     try:
@@ -25,6 +22,7 @@ def render_tide_calc_cm_tab():
         <style>
         .cm-day-header { text-align: center; font-size: 16px; font-weight: bold; color: #1E90FF; background-color: #f0f2f6; padding: 6px; border: 1px solid #ddd; border-radius: 5px; margin-top: 20px; margin-bottom: 10px; }
         .cm-window-title { font-size: 14.5px; font-weight: bold; color: #d93025; margin-top: 15px; margin-bottom: 5px; border-left: 4px solid #d93025; padding-left: 8px; }
+        .cm-summary-box { font-size: 14.5px; color: #856404; background-color: #fff3cd; border-left: 4px solid #ffeeba; padding: 10px 15px; margin-top: 10px; margin-bottom: 15px; border-radius: 5px; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -45,7 +43,6 @@ def render_tide_calc_cm_tab():
 
     # 2. XỬ LÝ DỮ LIỆU CUỐN CHIẾU
     if st.session_state.get("tide_calc_cm_run", False):
-        # Nạp dữ liệu thủy triều tổng
         db = load_all_tide_data()
         if not db:
             st.error("❌ Không tải được dữ liệu thủy triều.")
@@ -53,8 +50,8 @@ def render_tide_calc_cm_tab():
             
         run_date = st.session_state.cm_date
         action_val = st.session_state.cm_action
+        action_str = "CẬP BẾN" if "CẬP" in action_val else "RỜI BẾN"
         
-        # NẠP DỮ LIỆU WINDOW TỪ BỘ ĐỆM CACHE SIÊU TỐC
         raw_win_df = load_cm_window_data()
         if raw_win_df is None:
             st.error("❌ Lỗi đọc file data_window.xlsx (sheet WindowCM).")
@@ -79,8 +76,8 @@ def render_tide_calc_cm_tab():
             show_cols = base_cols + action_cols
             df_display = df_day[['_actual_date', 'Date'] + show_cols].copy()
             
+            # IN BẢNG WINDOW
             styled_table = process_and_style_df(df_display, show_past_dates=True)
-            
             col_cfg = { 
                 "Dir": st.column_config.TextColumn("Dir", width=35), 
                 "Level": st.column_config.TextColumn("Lvl", width=35), 
@@ -93,9 +90,12 @@ def render_tide_calc_cm_tab():
             
             st.dataframe(styled_table, use_container_width=True, hide_index=True, column_config=col_cfg, column_order=show_cols)
             
-            # BẢNG 2: TÍNH MAX DRAFT TỪNG BLOCK 30 PHÚT
+            # CHUẨN BỊ TÍNH MỚN
             valid_df = styled_table.data
+            day_draft_values = set()
+            windows_data_to_render = []
             
+            # VÒNG QUÉT 1: Tính toán toàn bộ các block để tìm Max/Min
             for idx, row in valid_df.iterrows():
                 times = []
                 for c in action_cols:
@@ -140,27 +140,56 @@ def render_tide_calc_cm_tab():
                     curr += datetime.timedelta(minutes=30)
                     
                 depth = float(config.get("cm", 14.0))
-                drafts = []
+                blocks_data = []
                 for b_dt in blocks:
                     tide = get_tide_at_eta(db, "CM", b_dt)
                     if tide is not None and not pd.isna(tide):
-                        draft = (tide + depth) / 1.10
-                        drafts.append(f"{draft:.1f}")
-                    else:
-                        drafts.append("N/A")
-                        
-                st.markdown(f"<div class='cm-window-title'>📐 Bảng mớn Window: {min_dt.strftime('%H:%M')} ➔ {max_dt.strftime('%H:%M')}</div>", unsafe_allow_html=True)
+                        draft_val = (tide + depth) / 1.10
+                        draft_rounded = round(draft_val, 1)
+                        day_draft_values.add(draft_rounded)
+                        blocks_data.append((b_dt, draft_rounded, f"{draft_rounded:.1f}"))
+                
+                if blocks_data:
+                    windows_data_to_render.append({
+                        "min_dt": min_dt,
+                        "max_dt": max_dt,
+                        "blocks_data": blocks_data
+                    })
+            
+            # IN DÒNG CHÚ THÍCH MAX/MIN
+            if day_draft_values:
+                sorted_drafts = sorted(list(day_draft_values))
+                min_3 = sorted_drafts[:3]
+                max_3 = sorted(sorted_drafts, reverse=True)[:3]
+                
+                st.markdown(f"<div class='cm-summary-box'>📌 Mớn nước trong ngày {d.strftime('%d/%m/%Y')} "
+                            f"lớn nhất là: <b>{', '.join([f'{v:.1f}' for v in max_3])}m</b>, "
+                            f"nhỏ nhất là: <b>{', '.join([f'{v:.1f}' for v in min_3])}m</b><br>"
+                            f"<i>(Ở bảng dưới chỉ hiển thị các mớn ≤ 15.0m)</i></div>", unsafe_allow_html=True)
+            
+            # VÒNG QUÉT 2: Lọc bỏ mớn > 15.0 và in bảng
+            for w_data in windows_data_to_render:
+                min_dt = w_data["min_dt"]
+                max_dt = w_data["max_dt"]
+                
+                # BỘ LỌC TÀN NHẪN: Chém sạch các mớn > 15.0
+                filtered_blocks = [item for item in w_data["blocks_data"] if item[1] <= 15.0]
+                
+                if not filtered_blocks:
+                    st.info(f"Khung window {min_dt.strftime('%H:%M')} ➔ {max_dt.strftime('%H:%M')} không có mớn nào ≤ 15.0m.")
+                    continue
+                    
+                st.markdown(f"<div class='cm-window-title'>Bảng mớn nước tàu {action_str} cho window: {min_dt.strftime('%H:%M')} ➔ {max_dt.strftime('%H:%M')}</div>", unsafe_allow_html=True)
                 
                 CHUNK_SIZE = 12
-                for i in range(0, len(blocks), CHUNK_SIZE):
-                    chunk_blocks = blocks[i:i+CHUNK_SIZE]
-                    chunk_drafts = drafts[i:i+CHUNK_SIZE]
+                for i in range(0, len(filtered_blocks), CHUNK_SIZE):
+                    chunk = filtered_blocks[i:i+CHUNK_SIZE]
                     
                     chunk_dict = {}
-                    for b, dr in zip(chunk_blocks, chunk_drafts):
-                        time_str = b.strftime('%H:%M')
-                        if b.date() > d: time_str += " (+1)"
-                        chunk_dict[time_str] = dr
+                    for b_dt, _, dr_str in chunk:
+                        time_str = b_dt.strftime('%H:%M')
+                        if b_dt.date() > d: time_str += " (+1)"
+                        chunk_dict[time_str] = dr_str
                         
                     df_chunk = pd.DataFrame([chunk_dict])
                     
