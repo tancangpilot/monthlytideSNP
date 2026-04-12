@@ -64,29 +64,29 @@ def process_and_style_df(df, show_past_dates=False):
 
     def style_row(row):
         styles = []
-        # Chuyển đổi logic: Dựa vào _dow để tô màu nguyên khối ngày
         day_idx = row.get('_dow', -1)
         bg = ""
         
-        # Chỉ tô màu cho Thứ 7 và Chủ Nhật (Window Cát Lái/Cái Mép)
+        # 1. LÀM DỊU MÀU NỀN CUỐI TUẦN (Chuyển sang tone Pastel êm mắt)
         if day_idx == 5: # Thứ 7
-            bg = "background-color: rgba(255, 99, 71, 0.25);"
+            bg = "background-color: rgba(255, 99, 71, 0.15);" # Cũ là 0.25
         elif day_idx == 6: # Chủ Nhật
-            bg = "background-color: rgba(255, 0, 0, 0.35);"
-        # Ngày thường (Thứ 2 - Thứ 6) để trống để có màu trắng mặc định
+            bg = "background-color: rgba(255, 0, 0, 0.12);"   # Cũ là 0.35
         
-        base_css = bg + "font-size: 15px; " # Đã giảm cỡ chữ cho dễ nhìn trên web
+        base_css = bg + "font-size: 15px; " 
         
         for col_name, val in row.items():
             css = base_css 
             val_str = str(val)
             if 'Dir' in str(col_name):
-                if '↙' in val_str: css += "color: #ff4d4d; font-weight: bold; font-size: 17px;"
-                elif '↗' in val_str: css += "color: #00cc00; font-weight: bold; font-size: 17px;"
+                if '↙' in val_str: css += "color: #cc0000; font-weight: bold; font-size: 17px;"
+                elif '↗' in val_str: css += "color: #008000; font-weight: bold; font-size: 17px;"
             elif 'Port' in str(col_name) or '-P' in str(col_name):
-                css += "color: #ff4d4d; font-weight: bold;"
+                # Ép đỏ sậm cho chữ mạn Trái dễ đọc trên nền hồng
+                css += "color: #cc0000; font-weight: bold;"
             elif 'Stb' in str(col_name) or 'Starboard' in str(col_name):
-                css += "color: #00cc00; font-weight: bold;"
+                # 2. ĐỔI MÀU XANH STARBOARD THÀNH XANH LỤC BẢO ĐẬM (Forest Green)
+                css += "color: #008000; font-weight: bold;" 
             elif 'UB' in str(col_name) or ' B' in str(col_name):
                 css += "font-weight: bold;"
             styles.append(css)
