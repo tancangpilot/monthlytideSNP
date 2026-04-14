@@ -9,7 +9,7 @@ def render_window_tab(file_path, sheet_name, disclaimer_text):
     # --- KHU VỰC NÚT BẬT IN ---
     c1, c2 = st.columns([3, 1])
     with c2:
-        print_mode = st.toggle("🖨️ BẬT CHẾ ĐỘ IN (A4 Dọc)", value=False)
+        print_mode = st.toggle("🖨️BẬT CHẾ ĐỘ IN (A4 Dọc)", value=False)
         
     with c1:
         if not print_mode:
@@ -19,7 +19,7 @@ def render_window_tab(file_path, sheet_name, disclaimer_text):
     if not print_mode:
         with st.container(border=True):
             col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-            with col_c1: show_past = st.toggle("🕰️ Hiện ngày đã qua", value=False)
+            with col_c1: show_past = st.toggle("Hiện ngày đã qua", value=False)
             with col_c2: st.session_state.show_full_cols = st.toggle("Hiển thị đủ tên cột", value=False)
             with col_c3: show_ub = st.toggle("Ẩn/Hiện UB (Rời)", value=True)
             with col_c4: show_b = st.toggle("Ẩn/Hiện B (Cập)", value=True)
