@@ -50,6 +50,7 @@ def process_and_style_df(df, show_past_dates=False):
         if isinstance(v, datetime.time):
             return v.strftime("%H:%M")
         vs = str(v).strip()
+        
         if len(vs) >= 8 and vs[2] == ':' and vs[5] == ':': return vs[:5]
         if len(vs) >= 5 and vs[2] == ':': return vs[:5]
         return vs
@@ -69,9 +70,9 @@ def process_and_style_df(df, show_past_dates=False):
         
         # 1. LÀM DỊU MÀU NỀN CUỐI TUẦN (Chuyển sang tone Pastel êm mắt)
         if day_idx == 5: # Thứ 7
-            bg = "background-color: rgba(255, 99, 71, 0.15);" # Cũ là 0.25
+            bg = "background-color: rgba(255, 99, 71, 0.15);" 
         elif day_idx == 6: # Chủ Nhật
-            bg = "background-color: rgba(255, 0, 0, 0.12);"   # Cũ là 0.35
+            bg = "background-color: rgba(255, 0, 0, 0.12);"
         
         base_css = bg + "font-size: 15px; " 
         
@@ -86,7 +87,7 @@ def process_and_style_df(df, show_past_dates=False):
                 css += "color: #cc0000; font-weight: bold;"
             elif 'Stb' in str(col_name) or 'Starboard' in str(col_name):
                 # 2. ĐỔI MÀU XANH STARBOARD THÀNH XANH LỤC BẢO ĐẬM (Forest Green)
-                css += "color: #008000; font-weight: bold;" 
+                css += "color: #008000; font-weight: bold;"
             elif 'UB' in str(col_name) or ' B' in str(col_name):
                 css += "font-weight: bold;"
             styles.append(css)
@@ -114,11 +115,15 @@ def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.x
     month_map = {}
     months_en = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
     for i, m in enumerate(months_en, 1):
-        month_map[m] = i; month_map[m[:3]] = i  
+        month_map[m] = i
+        month_map[m[:3]] = i  
     for i in range(1, 13):
-        month_map[str(i)] = i; month_map[f"{i}.0"] = i 
-        month_map[f"tháng {i}"] = i; month_map[f"thang {i}"] = i
-        month_map[f"tháng{i}"] = i; month_map[f"thang{i}"] = i
+        month_map[str(i)] = i
+        month_map[f"{i}.0"] = i 
+        month_map[f"tháng {i}"] = i
+        month_map[f"thang {i}"] = i
+        month_map[f"tháng{i}"] = i
+        month_map[f"thang{i}"] = i
         
     final_list = []
     try:
@@ -144,18 +149,28 @@ def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.x
                 col0_val = str(row[0]).strip().lower()
                 col1_val = str(row[1]).strip().lower()
                 
-                if col0_val in month_map: current_month = month_map[col0_val]; day_count = 0
+                if col0_val in month_map: 
+                    current_month = month_map[col0_val]
+                    day_count = 0
                 
                 is_numeric_day = False
-                try: day_count = int(float(col1_val)); is_numeric_day = True
-                except ValueError: pass
+                try: 
+                    day_count = int(float(col1_val))
+                    is_numeric_day = True
+                except ValueError: 
+                    pass
 
-                if is_numeric_day: pass
-                elif col1_val in ["cn", "t2", "t3", "t4", "t5", "t6", "t7"]: day_count += 1
-                else: continue 
+                if is_numeric_day: 
+                    pass
+                elif col1_val in ["cn", "t2", "t3", "t4", "t5", "t6", "t7"]: 
+                    day_count += 1
+                else: 
+                    continue 
 
-                try: dt = pd.Timestamp(year, current_month, day_count)
-                except ValueError: continue
+                try: 
+                    dt = pd.Timestamp(year, current_month, day_count)
+                except ValueError: 
+                    continue
                 
                 if target_month_num:
                     if dt.month != target_month_num: continue
@@ -165,13 +180,19 @@ def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.x
                 res_row = {"Date": dt.strftime("%d/%m"), "Point": p, "_dow": dt.dayofweek, "_sort": dt}
                 for h in range(24):
                     h_col = f"{h:02d}"
-                    if (h + 2) < len(row): tide_val = pd.to_numeric(row[h+2], errors='coerce')
-                    else: tide_val = float('nan')
-                        
+          
+                    if (h + 2) < len(row): 
+                        tide_val = pd.to_numeric(row[h+2], errors='coerce')
+                    else: 
+                        tide_val = float('nan')
+                    
+                    # ĐÃ SỬA: Cột 5h (tức là đúng 05:00:00) vẫn chịu UKC 10%. Từ 6h mới là 7%.
                     u = ukc_day if (6 <= h <= 17) else ukc_night
+    
                     if pd.notna(tide_val): 
                         res_row[h_col] = f"{(tide_val + depth) / (1 + u):.1f}"
-                    else: res_row[h_col] = ""
+                    else: 
+                        res_row[h_col] = ""
                         
                 final_list.append(res_row)
                 
@@ -194,7 +215,6 @@ def style_max_draft_table(df_res):
         if day_idx == 5: bg = "background-color: rgba(255, 99, 71, 0.25);"
         elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
         else: bg = "background-color: rgba(50, 150, 250, 0.15);"
-        
         css = bg + "font-size: 13px; " # Giảm 1px cho Max Draft Table như ông yêu cầu
         return [css] * len(row)
 
