@@ -35,7 +35,7 @@ TAB_MAP = {
 }
 REVERSE_MAP = {v: k for k, v in TAB_MAP.items()}
 
-st.set_page_config(page_title="Tide Schedule", page_icon="logoHTTC.jpg", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Tide Schedule", page_icon="logoHTTC.png", layout="wide", initial_sidebar_state="collapsed")
 
 if "active_tab_key" not in st.session_state:
     st.session_state.active_tab_key = REVERSE_MAP.get(st.query_params.get("tab", "tide_cl"), "🧭 Tide Calc CÁT LÁI")
