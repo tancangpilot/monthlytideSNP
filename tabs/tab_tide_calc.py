@@ -91,12 +91,26 @@ def render_tide_calc_tab(*args, **kwargs):
                 df_res1 = pd.DataFrame(res)
                 styler1 = df_res1.style.set_table_styles([{'selector': 'th', 'props': [('background-color', '#ffe699 !important')]}])
                 st.dataframe(styler1, use_container_width=True, hide_index=True, height=500)
-            else:
+            else:                
                 safe_details = calculate_opt2_safe_times(route_sel, pob_date, draft, config, db, direction)
                 max_3, min_3 = get_day_draft_extrema(route_sel, pob_date, config, db)
-                msg_success = (f"<div style='background-color: #e6ffed; padding: 10px 15px; border-radius: 5px; border-left: 5px solid #2ea043; margin-bottom: 10px;'>"
-                               f"<b>Thời điểm POB lọt tuyến {route_sel} cho mớn {draft}m ngày {pob_date.strftime('%d/%m/%Y')}</b><br>"
-                               f"<i>(Mớn Max: {', '.join([f'{d:.1f}' for d in max_3])}m)</i></div>")
+                
+                # Tạo chuỗi Mớn Max và Min
+                max_str = ", ".join([f"{d:.1f}" for d in max_3])
+                min_str = ", ".join([f"{d:.1f}" for d in min_3])
+                
+                # Định dạng in đậm và tô màu (Highlight)
+                h_route = f"<span style='color: #1E90FF; font-weight: bold;'>{route_sel}</span>"
+                h_draft = f"<span style='color: #d93025; font-weight: bold;'>{draft}m</span>"
+                h_date = f"<span style='color: #1E90FF; font-weight: bold;'>{pob_date.strftime('%d/%m/%Y')}</span>"
+                h_max = f"<span style='color: #d93025; font-weight: bold;'>{max_str}m</span>"
+                h_min = f"<span style='color: #008000; font-weight: bold;'>{min_str}m</span>"
+                
+                # Ghép vào khung thông báo
+                msg_success = (f"<div style='background-color: #e6ffed; padding: 10px 15px; border-radius: 5px; border-left: 5px solid #2ea043; margin-bottom: 10px; font-size: 15px;'>"
+                               f"Thời điểm POB lọt tuyến {h_route} cho mớn {h_draft} ngày {h_date}<br>"
+                               f"(Trong ngày Mớn Max: {h_max}, Mớn Min: {h_min})</div>")
+                
                 st.markdown(msg_success, unsafe_allow_html=True)
                 
                 table_data = []
