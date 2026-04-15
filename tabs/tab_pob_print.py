@@ -81,7 +81,11 @@ def render_pob_print_tab():
                 eta = pob_dt + datetime.timedelta(minutes=transit)
                 tide = get_tide_at_eta(db, pt, eta)
                 if tide is not None:
-                    u = config["ukc_day"] if 6 <= eta.hour <= 17 else config["ukc_night"]
+                    
+                    # --- ĐÃ SỬA: Ép luật Ngày/Đêm mới thẳng vào bảng in ---
+                    is_day = (6 <= eta.hour <= 17) or (eta.hour == 5 and eta.minute > 0)
+                    u = config["ukc_day"] if is_day else config["ukc_night"]
+                    
                     row[slot] = f"{(tide + depth) / (1 + u / 100.0):.1f}"
                 else: 
                     row[slot] = ""
