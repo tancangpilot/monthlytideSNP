@@ -36,7 +36,14 @@ def render_tide_calc_tab(*args, **kwargs):
             margin-top: 5px;
         }
         
-        @media (min-width: 768px) {
+        /* ĐÃ SỬA: Cứu hộ iPad. Đẩy mốc min-width lên 1024px. iPad (dưới 1024px) sẽ hiện label dạng xếp chồng dọc để tiết kiệm không gian ngang */
+        @media (max-width: 1023px) {
+            [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) label[data-testid="stWidgetLabel"] {
+                display: block !important; color: #444 !important; font-weight: bold !important; margin-bottom: 5px !important;
+            }
+        }
+        
+        @media (min-width: 1024px) {
             [data-testid="stMainBlockContainer"]:has(#tide-calc-marker) label[data-testid="stWidgetLabel"] {
                 display: inline-block !important; min-width: 60px !important; margin-right: 10px !important; margin-bottom: 0px !important; padding-bottom: 0px !important; color: #444 !important; font-weight: bold !important;
             }
@@ -65,12 +72,15 @@ def render_tide_calc_tab(*args, **kwargs):
     dir_text = "ĐI RA" if "Outbound" in direction else "ĐI VÀO"
     st.markdown(f"<div style='margin-top: 5px; margin-bottom: 8px; font-size: 14.5px; color: #444; background-color: #f0f2f6; padding: 8px 12px; border-radius: 5px; border-left: 4px solid #1E90FF;'><b>⏳ {dir_text}:</b> {info_str}</div>", unsafe_allow_html=True)
     
+    # --- ĐÃ SỬA: Chia thành 2 tầng (2x2) để chống vỡ khung trên iPad ---
     with st.container(border=True):
-        col1, col2, col3, col4 = st.columns([1, 0.8, 1, 1])
+        col1, col2 = st.columns(2)
         with col1: pob_date = st.date_input("Date:", datetime.datetime.now(VN_TZ).date(), format="DD/MM/YYYY", on_change=reset_calc)
         with col2: draft = st.number_input("Draft:", min_value=0.0, value=9.5, step=0.1, on_change=reset_calc)
+        
+        col3, col4 = st.columns(2)
         with col3:
-            st.write("") 
+            st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
             is_single = st.checkbox("🎯 Check 1 giờ", value=False, on_change=reset_calc)
         
         pob_time = None
@@ -81,6 +91,8 @@ def render_tide_calc_tab(*args, **kwargs):
             st.markdown(f"<div style='margin-top: 15px; margin-bottom: 25px; background-color: #fff9db; padding: 8px 12px; border-radius: 5px; border-left: 5px solid #fcc419; color: #856404; font-size: 14px;'>🤖 <b>Ghi chú:</b> Hệ thống tự động tìm tất cả giờ POB cho mớn nước <b>{draft}m</b>.</div>", unsafe_allow_html=True)
 
         if st.button("🚀 PROCESS", use_container_width=True, type="primary"): st.session_state.tide_calc_run = True
+
+    # (Phần if st.session_state.get("tide_calc_run", False): ở dưới ông giữ nguyên không đụng tới)
 
     if st.session_state.get("tide_calc_run", False):
         db = load_all_tide_data()
