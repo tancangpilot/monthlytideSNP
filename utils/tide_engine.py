@@ -15,6 +15,7 @@ ROUTE_MAP = {
 }
 
 @st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False)
 def load_all_tide_data(file_path="data_tide.xlsx"):
     tide_db = {}
     month_map = {"january":1, "february":2, "march":3, "april":4, "may":5, "june":6, "july":7, "august":8, "september":9, "october":10, "november":11, "december":12}
@@ -35,6 +36,9 @@ def load_all_tide_data(file_path="data_tide.xlsx"):
             point_data = {}
             current_month = today.month
             
+            # --- ĐÃ SỬA: Đưa biến day_count ra ngoài vòng lặp ---
+            day_count = 0 
+            
             for idx, row in df.iterrows():
                 c0 = str(row[0]).strip().lower()
                 c1 = str(row[1]).strip().lower()
@@ -42,7 +46,7 @@ def load_all_tide_data(file_path="data_tide.xlsx"):
                 if c0 in month_map: 
                     current_month = month_map[c0]
                 
-                day_count = 0
+                # (Dòng day_count = 0 ở đây đã bị xóa)
                 is_day = False
                 try: 
                     day_count = int(float(c1))
