@@ -68,10 +68,9 @@ def process_and_style_df(df, show_past_dates=False):
         day_idx = row.get('_dow', -1)
         bg = ""
         
-        # 1. LÀM DỊU MÀU NỀN CUỐI TUẦN (Chuyển sang tone Pastel êm mắt)
-        if day_idx == 5: # Thứ 7
-            bg = "background-color: rgba(255, 99, 71, 0.15);" 
-        elif day_idx == 6: # Chủ Nhật
+        if day_idx == 5: 
+            bg = "background-color: rgba(255, 99, 71, 0.15);"
+        elif day_idx == 6: 
             bg = "background-color: rgba(255, 0, 0, 0.12);"
         
         base_css = bg + "font-size: 15px; " 
@@ -83,10 +82,8 @@ def process_and_style_df(df, show_past_dates=False):
                 if '↙' in val_str: css += "color: #cc0000; font-weight: bold; font-size: 17px;"
                 elif '↗' in val_str: css += "color: #008000; font-weight: bold; font-size: 17px;"
             elif 'Port' in str(col_name) or '-P' in str(col_name):
-                # Ép đỏ sậm cho chữ mạn Trái dễ đọc trên nền hồng
                 css += "color: #cc0000; font-weight: bold;"
             elif 'Stb' in str(col_name) or 'Starboard' in str(col_name):
-                # 2. ĐỔI MÀU XANH STARBOARD THÀNH XANH LỤC BẢO ĐẬM (Forest Green)
                 css += "color: #008000; font-weight: bold;"
             elif 'UB' in str(col_name) or ' B' in str(col_name):
                 css += "font-weight: bold;"
@@ -104,13 +101,13 @@ def process_and_style_df(df, show_past_dates=False):
 
 
 @st.cache_data(show_spinner=False)
-def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.xlsx"):
+def get_max_draft_raw_data(config, group_mode, month_sel, view_mode="Draft", file_path="data_tide.xlsx"):
     if not os.path.exists(file_path): 
         st.error(f"Thiếu file {file_path}")
         return None
     
     groups = {"LÒNG TÀU": ["HL27", "HL21", "HL6"], "SOÀI RẠP": ["VL", "TCHP", "BB"]}
-    points = groups[group_mode]
+    points = groups.get(group_mode, [])
     
     month_map = {}
     months_en = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
@@ -133,13 +130,16 @@ def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.x
         
         target_month_num = None
         if month_sel != "Mặc định (Hiện tại -> Hết tháng)":
-            target_month_num = int(month_sel.split()[-1])
+            try:
+                target_month_num = int(month_sel.split()[-1])
+            except ValueError:
+                pass
 
         for p in points:
             if p not in xl.sheet_names: continue
             df_raw = pd.read_excel(file_path, header=None, sheet_name=p)
-            ukc_day, ukc_night = config["ukc_day"]/100.0, config["ukc_night"]/100.0
-            depth = float(config[p.lower()])
+            ukc_day, ukc_night = config.get("ukc_day", 7)/100.0, config.get("ukc_night", 10)/100.0
+            depth = float(config.get(p.lower(), 0))
 
             current_month = today.month 
             day_count = 0
@@ -186,11 +186,13 @@ def get_max_draft_raw_data(config, group_mode, month_sel, file_path="data_tide.x
                     else: 
                         tide_val = float('nan')
                     
-                    # ĐÃ SỬA: Cột 5h (tức là đúng 05:00:00) vẫn chịu UKC 10%. Từ 6h mới là 7%.
                     u = ukc_day if (6 <= h <= 17) else ukc_night
     
                     if pd.notna(tide_val): 
-                        res_row[h_col] = f"{(tide_val + depth) / (1 + u):.1f}"
+                        if view_mode == "Tide":
+                            res_row[h_col] = f"{tide_val:.1f}"
+                        else:
+                            res_row[h_col] = f"{(tide_val + depth) / (1 + u):.1f}"
                     else: 
                         res_row[h_col] = ""
                         
@@ -212,10 +214,11 @@ def style_max_draft_table(df_res):
     def style_sum(row):
         day_idx = row.get("_dow", -1)
         bg = ""
-        if day_idx == 5: bg = "background-color: rgba(255, 99, 71, 0.25);"
-        elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.35);"
-        else: bg = "background-color: rgba(50, 150, 250, 0.15);"
-        css = bg + "font-size: 13px; " # Giảm 1px cho Max Draft Table như ông yêu cầu
+        if day_idx == 5: bg = "background-color: rgba(255, 99, 71, 0.15);"
+        elif day_idx == 6: bg = "background-color: rgba(255, 0, 0, 0.20);"
+        else: bg = "background-color: #ffffff;" 
+        
+        css = bg + "font-size: 13px; " 
         return [css] * len(row)
 
     styler = df_res.style.apply(style_sum, axis=1).set_table_styles([
