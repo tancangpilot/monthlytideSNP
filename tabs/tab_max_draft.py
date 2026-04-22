@@ -11,7 +11,7 @@ def render_max_draft_tab():
     # 1. GIAO DIỆN CONTROL
     # =================================================================
     with st.container(border=True):
-        col1, col2, col_print = st.columns([2, 3, 1.5])
+        col1, col2, col_mode, col_print = st.columns([1.5, 2.5, 1.5, 1.5])
         
         with col1:
             grp_choice = st.selectbox("Sông", ["🌊 LÒNG TÀU", "🌊 SOÀI RẠP"], label_visibility="collapsed")
@@ -21,13 +21,17 @@ def render_max_draft_tab():
             m_options = ["📅 Mặc định (Hiện tại -> Hết tháng)"] + [f"📅 Tháng {i}" for i in range(1, 13)]
             m_choice = st.selectbox("Tháng", m_options, label_visibility="collapsed")
             
-            if "Mặc định" in m_choice:
-                month_sel = f"Tháng {datetime.datetime.now().month}"
-            else:
-                month_sel = m_choice.replace("📅 ", "")
+        if "Mặc định" in m_choice:
+            month_sel = f"Tháng {datetime.datetime.now().month}"
+        else:
+            month_sel = m_choice.replace("📅 ", "")
+            
+        with col_mode:
+            is_tide_mode = st.toggle("🌊 Nước gốc", value=False)
+            view_mode = "Tide" if is_tide_mode else "Draft"
                 
         with col_print:
-            print_mode = st.toggle("🖨️ BẬT CHẾ ĐỘ IN", value=False)
+            print_mode = st.toggle("🖨️ BẬT IN ẤN", value=False)
 
     st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px solid #ccc;'>", unsafe_allow_html=True)
     
@@ -35,31 +39,24 @@ def render_max_draft_tab():
     # 2. XỬ LÝ DỮ LIỆU & BẢNG
     # =================================================================
     with st.spinner("Đang tính toán số liệu..."):
-        df_raw = get_max_draft_raw_data(config, grp, month_sel)
+        df_raw = get_max_draft_raw_data(config, grp, month_sel, view_mode=view_mode)
         
         if df_raw is not None and not df_raw.empty:
             
-            # -------------------------------------------------------------
-            # BỘ LỌC 1: CHẶN QUÁ KHỨ (NẾU CHỌN "MẶC ĐỊNH")
-            # -------------------------------------------------------------
             if "Mặc định" in m_choice:
                 today = pd.Timestamp.today().normalize()
                 df_raw = df_raw[df_raw['_sort'] >= today].reset_index(drop=True)
             
             if not df_raw.empty:
-                # ---------------------------------------------------------
-                # BỘ LỌC 2: ÉP THỨ TỰ TRẠM CHUẨN XÁC 100%
-                # ---------------------------------------------------------
                 try:
                     df_raw['_temp_date'] = df_raw['Date'].replace("", pd.NA).ffill()
                     
                     if grp == "LÒNG TÀU":
                         sort_map = {"HL27": 1, "HL21": 2, "HL6": 3}
-                    else: # SOÀI RẠP
+                    else: 
                         sort_map = {"VL": 1, "TCHP": 2, "BB": 3}
                         
                     df_raw['_point_sort'] = df_raw['Point'].map(lambda x: sort_map.get(str(x).strip(), 99))
-                    
                     day_order = {d: i for i, d in enumerate(df_raw['_temp_date'].dropna().unique())}
                     df_raw['_day_idx'] = df_raw['_temp_date'].map(day_order)
                     
@@ -79,11 +76,9 @@ def render_max_draft_tab():
             styled_df = style_max_draft_table(df_raw)
             vis_cols = [c for c in styled_df.data.columns if c not in ["_dow", "_sort"]]
             
-            # =========================================================
-            # PHÂN NHÁNH HIỂN THỊ (IN ẤN VS WEB NATIVE)
-            # =========================================================
+            table_title_text = "BẢNG THỦY TRIỀU GỐC" if is_tide_mode else "BẢNG MAX DRAFT"
+            
             if print_mode:
-                # GIAO DIỆN IN ẤN HTML (Giữ nguyên siêu nén)
                 styled_html = styled_df.hide(subset=["_dow", "_sort"], axis="columns").hide()
                 html_table = styled_html.set_table_attributes('class="print-max-draft"').to_html()
                 
@@ -106,7 +101,7 @@ def render_max_draft_tab():
 </style>
 
 <div style='font-size: 18px; font-weight: bold; text-align: center; color: #111; margin-bottom: 8px; text-transform: uppercase;'>
-    BẢNG MAX DRAFT - {grp} ({month_sel})
+    {table_title_text} - {grp} ({month_sel})
 </div>
 {html_table}
 """
@@ -121,7 +116,7 @@ def render_max_draft_tab():
                             table.classList.add('grouped');
                             const tbody = table.querySelector('tbody');
                             if (tbody) {
-                                const rows = Array.from(tbody.querySelectorAll('tr'));
+                                 const rows = Array.from(tbody.querySelectorAll('tr'));
                                 let currentTbody = null;
                                 rows.forEach(row => {
                                     const firstCell = row.querySelector('th') || row.querySelector('td');
@@ -137,13 +132,13 @@ def render_max_draft_tab():
                             }
                             clearInterval(interval);
                         }
-                        attempts++; if (attempts > 10) clearInterval(interval);
+                        attempts++;
+                        if (attempts > 10) clearInterval(interval);
                     }, 200);
                 </script>
                 """, height=0, width=0)
 
             else:
-                # GIAO DIỆN WEB NATIVE: Trả về DataFrame thuần của Streamlit và khóa cột
                 col_cfg = {
                     "_dow": None, 
                     "_sort": None, 
