@@ -3,7 +3,7 @@ import pandas as pd
 import time
 from datetime import datetime, timedelta
 from utils.config_manager import save_config
-from streamlit_gsheets import GSheetsConnection # THÊM THƯ VIỆN ĐÁM MÂY
+from streamlit_gsheets import GSheetsConnection
 
 def render_admin_page(config):
     # --- 1. XÓA DẤU VẾT TRÊN URL ---
@@ -38,11 +38,28 @@ def render_admin_page(config):
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
 
+        # --------------------------------------------------------
+        # BƯỚC TỐI ƯU API CỰC MẠNH: CHỈ ĐỌC 1 LẦN DUY NHẤT
+        # Đặt ttl="5s" để tránh bị spam nếu lỡ tay bấm đúp chuột
+        # --------------------------------------------------------
+        raw_data = conn.read(worksheet="Channel_Infor", header=None, ttl="5s")
+        
+        # Xử lý dò tìm dòng tiêu đề ngay trên máy tính (không tốn API của Google)
+        start_row = 0
+        for i, row in raw_data.head(20).iterrows():
+            row_str = " ".join([str(val).lower() for val in row.values])
+            if any(x in row_str for x in ["độ sâu", "tuyến luồng", "cầu cảng"]):
+                start_row = i; break
+        
+        # Cắt gọt dữ liệu thô thành bảng chuẩn
+        df_main = raw_data.iloc[start_row+1:].copy()
+        df_main.columns = [str(c).strip() for c in raw_data.iloc[start_row].values]
+        df_main = df_main.reset_index(drop=True)
+        df_structure = df_main.copy()
+        # --------------------------------------------------------
+
         # --- 2. QUẢN LÝ CẤU TRÚC BẢNG ---
         st.markdown("#### 2️⃣ QUẢN LÝ CẤU TRÚC BẢNG (THÊM/XÓA CỘT)")
-        
-        # ĐỌC TỪ CLOUD (ttl="0s" để luôn lấy bản mới nhất, không dùng cache)
-        df_structure = conn.read(worksheet="Channel_Infor", ttl="0s")
         col_add, col_del = st.columns(2)
         
         with col_add:
@@ -50,7 +67,6 @@ def render_admin_page(config):
             if st.button("➕ Thêm cột mới"):
                 if new_col_name and new_col_name not in df_structure.columns:
                     df_structure[new_col_name] = ""
-                    # GHI LÊN CLOUD THAY VÌ EXCEL
                     conn.update(worksheet="Channel_Infor", data=df_structure)
                     st.cache_data.clear() 
                     st.success(f"✅ Đã thêm cột '{new_col_name}' lên Cloud")
@@ -62,7 +78,6 @@ def render_admin_page(config):
             if st.button("🗑️ Xóa cột đã chọn"):
                 if cols_to_remove:
                     df_structure = df_structure.drop(columns=cols_to_remove)
-                    # GHI LÊN CLOUD THAY VÌ EXCEL
                     conn.update(worksheet="Channel_Infor", data=df_structure)
                     st.cache_data.clear()
                     st.success("✅ Đã xóa cột trên Cloud thành công!"); time.sleep(1); st.rerun()
@@ -86,17 +101,6 @@ def render_admin_page(config):
             </div>
         """, unsafe_allow_html=True)
 
-        # Đọc dữ liệu từ Cloud tìm dòng tiêu đề
-        temp_df = conn.read(worksheet="Channel_Infor", header=None, nrows=20, ttl="0s")
-        start_row = 0
-        for i, row in temp_df.iterrows():
-            row_str = " ".join([str(val).lower() for val in row.values])
-            if any(x in row_str for x in ["độ sâu", "tuyến luồng", "cầu cảng"]):
-                start_row = i; break
-        
-        # Đọc lại dữ liệu chuẩn từ Cloud
-        df_main = conn.read(worksheet="Channel_Infor", skiprows=start_row, ttl="0s")
-        df_main.columns = [str(c).strip() for c in df_main.columns]
         group_col = df_main.columns[0]
 
         # Khóa kích thước cột
@@ -172,6 +176,42 @@ def render_admin_page(config):
             st.cache_data.clear() 
             st.success(f"✅ Đã đồng bộ an toàn lên Google Sheets!")
             time.sleep(2.5); st.rerun()
+
+        # ========================================================
+        # PHẦN 4: CÔNG CỤ SIÊU NẠP TỰ ĐỘNG (ĐÃ GẮN PHANH AN TOÀN)
+        # ========================================================
+        st.markdown("<hr style='margin: 25px 0 15px 0;'>", unsafe_allow_html=True)
+        st.markdown("#### 🚀 CÔNG CỤ SIÊU NẠP DỮ LIỆU TỰ ĐỘNG (TIDE & WINDOW)")
+        st.info("💡 Ông kéo thả file `data_tide.xlsx` hoặc `data_window.xlsx` vào đây. Hệ thống sẽ tự tìm các Trạm và đẩy lên Cloud.")
+
+        uploaded_file = st.file_uploader("Chọn file Excel để nạp lên Cloud:", type=["xlsx"], label_visibility="collapsed")
+
+        if uploaded_file is not None:
+            if st.button("📤 XÁC NHẬN ĐỒNG BỘ LÊN CLOUD", type="primary", use_container_width=True):
+                # Dùng pd.ExcelFile để lấy được danh sách các Sheet bên trong
+                xl = pd.ExcelFile(uploaded_file)
+                sheet_names = xl.sheet_names
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                for i, s_name in enumerate(sheet_names):
+                    status_text.write(f"⏳ Đang xử lý trạm/bảng: **{s_name}**...")
+                    
+                    df_to_upload = pd.read_excel(uploaded_file, sheet_name=s_name)
+                    
+                    # Cập nhật lên Google Sheets
+                    conn.update(worksheet=s_name, data=df_to_upload)
+                    
+                    progress_bar.progress((i + 1) / len(sheet_names))
+                    
+                    # PHANH AN TOÀN: Nghỉ 2 giây để Google không báo lỗi quá tải (Lỗi 429)
+                    time.sleep(2)
+                
+                status_text.empty()
+                st.cache_data.clear() 
+                st.success(f"✅ Đã nạp thành công {len(sheet_names)} trạm/bảng lên Cloud vĩnh viễn!")
+                st.balloons() 
 
         st.markdown("<div style='height: 250px;'></div>", unsafe_allow_html=True)
 
