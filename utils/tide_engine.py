@@ -9,7 +9,7 @@ ROUTE_MAP = {
     "1. P0 VT ➔ Lòng Tàu ➔ Cát Lái": [("HL27", 120), ("HL21", 150), ("HL6", 240)],
     "2. P0 SR ➔ Soài Rạp ➔ TC Hiệp Phước": [("VL", 90), ("TCHP", 180)],
     "1. Cát Lái ➔ Lòng Tàu ➔ P0 VT": [("HL6", 30), ("HL21", 120), ("HL27", 150)],
-    "2. Cát Lái ➔ Soài Rạp ➔ P0 SR (Hỗn hợp)": [("BB", 60), ("VL", 150)],
+    "2. Cát Lái ➔ Soài Rạp ➔ P0 SR (Hỗn hợp)": [("BB", 90), ("VL", 180)],
     # ĐÃ CẬP NHẬT: Trạm VL 90 phút (1h30) theo đính chính của ông
     "3. TC Hiệp Phước ➔ Soài Rạp ➔ P0 SR": [("TCHP", 30), ("VL", 90)]
 }
