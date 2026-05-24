@@ -23,7 +23,7 @@ def load_config():
     return {
         "logged_in": False, "ukc_day": 7, "ukc_night": 10,
         "hl6": 8.8, "hl21": 8.5, "hl27": 8.5, 
-        "bb": 6.7, "vl": 8.0, "tchp": 8.0,
+        "bb": 5.8, "vl": 8.0, "tchp": 7.6,
         "cm": 14.0,  # <-- Đã thêm độ sâu mặc định cho tuyến Cái Mép
         "last_updated": "Chưa có dữ liệu"
     }
