@@ -76,7 +76,7 @@ def render_tide_calc_tab(*args, **kwargs):
     with st.container(border=True):
         col1, col2 = st.columns(2)
         with col1: pob_date = st.date_input("Date:", datetime.datetime.now(VN_TZ).date(), format="DD/MM/YYYY", on_change=reset_calc)
-        with col2: draft = st.number_input("Draft:", min_value=0.0, value=8.5, step=0.1, on_change=reset_calc)
+        with col2: draft = st.number_input("Draft:", min_value=0.0, value=8.0, step=0.1, on_change=reset_calc)
         
         col3, col4 = st.columns(2)
         with col3:
